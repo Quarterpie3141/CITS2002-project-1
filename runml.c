@@ -6,7 +6,7 @@
 #define MAX_REAL_LENGTH 16
 #define MAX_IDENTIFIERS 50
 #define INITIAL_ARRAY_SIZE 1024
-
+//todo - close fopen calls and free() malloc'd nodes
 int syntaxErrorFlag = 0;
 
 typedef enum {
@@ -36,7 +36,7 @@ typedef struct {
     int position;
 } Token;
 
-int validateFile(const char *fileName){
+int validateFileExt(const char *fileName){
     char *ext  = strrchr(fileName, '.'); // grab the mem address of where the extention begins in the file name
 
     if(!ext || strcmp(ext, ".ml") != 0){    // check if the file dosent have an extention or has the incorrect extention 
@@ -46,12 +46,19 @@ int validateFile(const char *fileName){
     return 0;
 }
 
-
+char *duplicateString(const char *string) {
+    int legnth = strlen(string) + 1; // get the length of the string including the null byte
+    char *copy = malloc(legnth);   // malloc enough  mem for the copy
+    if (copy) {
+        memcpy(copy, string, legnth);   //copy the sting into mem
+    }
+    return copy;    //
+}
 
 Token createToken(TokenType type, const char *lexeme, int line, int position) {
     Token token;    // instantiates a new token struct and fills out the values with the ones provided
     token.type = type;
-    token.lexeme = strdup(lexeme);
+    token.lexeme = duplicateString(lexeme);
     token.line = line;
     token.position = position;
     return token;
@@ -79,7 +86,7 @@ TokenType getTokenType(char* identifier){
     return TOKEN_IDENTIFIER;
 }
 
-Token* lexer(FILE* file){
+Token* lexer(FILE* file){   //this entire function is pretty much adapted from llvm Kaleidoscope (1.2)
     static int currentPosition = 0;
     static int currentLine = 1;
     Token* tokens = malloc(sizeof(Token) * INITIAL_ARRAY_SIZE); //create an array of tokens in memory 
@@ -91,9 +98,16 @@ Token* lexer(FILE* file){
 
 
     while (currentCharacter != EOF){
-
         //check for identifiers to do add new line stuff from other function s
-        if (currentCharacter == ' ') {
+        if (currentCharacter == ' ') { // skip tokeniasation of spaces
+            advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
+            continue;
+        }
+        if (currentCharacter == '\n') { // skip tokeniasation of new lines
+            advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
+            continue;
+        }
+        if (currentCharacter == '\r') { // windows CRLF bullshittery, remove before submiting
             advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
             continue;
         }
@@ -255,7 +269,9 @@ Token* lexer(FILE* file){
 
             continue;
         }
+        fprintf(stderr, "! unexpected token \"%c\" on line %d at position %d\n", currentLine, currentPosition, currentCharacter);
         advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
+        continue;
     }
     Token eof_token = createToken(TOKEN_EOF, "EOF", currentLine, currentPosition);
     addToken(tokens, &amountOfTokens, eof_token);
@@ -269,7 +285,7 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
     }
 
-    if(validateFile(argv[1])){  // validate the file extention
+    if(validateFileExt(argv[1])){  // validate the file extention
         return EXIT_FAILURE;
     }
 
@@ -280,7 +296,7 @@ int main(int argc, char *argv[]){
     }
 
     Token* tokens = lexer(file);
-    
+
     fclose(file);
 
     for (int i = 0; ; i++) {
