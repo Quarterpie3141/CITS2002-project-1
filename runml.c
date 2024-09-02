@@ -42,23 +42,37 @@ typedef struct {
 // these are the type declarations for the nodes in the abstract syntax tree
 
 typedef enum { // types of ast nodes(the structs for each type are in the same order as these types inside the ASTNode type)
+    NODE_PROGRAM,
+    NODE_PROGRAM_ITEMS,
+    NODE_FUNCTION,
+    NODE_STATEMENT,
     NODE_ASSIGNMENT,
     NODE_PRINT,
+    NODE_RETURN,
     NODE_EXPRESSION,
     NODE_TERM,
-    NODE_FACTOR
-    
+    NODE_FACTOR,
+    NODE_FUNCTION_CALL
 } ASTNodeType;
+
 typedef enum {
         FACTOR_CONSTANT,
         FACTOR_IDENTIFIER,
         FACTOR_FUNCTION_CALL,
         FACTOR_EXPRESSION
 } FactorType;
+
 typedef enum {
         PROGRAM_STATEMENT,
         PROGRAM_FUNCTION
 } ProgramItemType;
+
+typedef enum {
+        STATEMENT_ASSIGNMENT,
+        STATEMENT_PRINT,
+        STATEMENT_RETURN,
+        STATEMENT_FUNCTION_CALL
+} StatementType;
 
 typedef struct ASTNode {
     ASTNodeType type;
@@ -83,12 +97,15 @@ typedef struct ASTNode {
 
         //need to implement
         struct {
-            struct ASTNode* programItems; //(optional)
+            char* functionIdentifier;
+            char* parameterIdentifiers; // (optional)
+            struct ASTNode* statements;
         } function;
 
         //need to implement
         struct {
-            struct ASTNode* programItems; //(optional)
+            StatementType statementType;
+            struct ASTNode* statement;
         } statement;
 
         // x <- 5, this node has an identifier(x) and an expression node(5)
@@ -185,7 +202,7 @@ void advanceCharacter(FILE *file, int *currentCharacter, int *currentLine, int *
     *currentCharacter = fgetc(file);    //gets the next character in the file
     (*currentPosition)++;               // if the next character is a new line then reset the position and increment the line
     if (*currentCharacter == '\n') {    //else just increment the position
-        (*currentLine)++;
+        (*currentLine++);
         *currentPosition = 0;
     }
 }
@@ -359,7 +376,7 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
             int startPosition = currentPosition;  // Save the position of the first #
 
             // Continue reading until the end of the line or EOF
-            while (currentCharacter != '\n' && currentCharacter != EOF) {
+            while (currentCharacter != '\n' && currentCharacter != EOF ) {
                 advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
             }
 
