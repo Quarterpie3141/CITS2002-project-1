@@ -1,3 +1,4 @@
 # an assignment statement, 2.500000 is printed
-x <- 2.5
+x <+ 2.5.32 
 print x		
+asdasdasdasd

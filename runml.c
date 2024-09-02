@@ -6,6 +6,7 @@
 #define MAX_REAL_LENGTH 16
 #define MAX_IDENTIFIERS 50
 #define INITIAL_ARRAY_SIZE 1024
+#define INITAL_ROOT_NODE_CAPACITY 2
 //todo - close fopen calls and free() malloc'd nodes
 int syntaxErrorFlag = 0;
 
@@ -81,21 +82,21 @@ typedef struct ASTNode {
     union {                 // union allows you to have multiple, structs in this case, under one memory address. 
                             // so each node has only one struct. but that struct can be any of the structs under union{}
         
-         // need to implement
+         // root node
         struct {
-            struct ASTNode* programItems; //(optional)
+            struct ASTNode** programItems; //(optional) double astrik to aloow the root node to store an arry of more nodes
         } program;
 
-         // need to implement
+        
         struct {
             ProgramItemType programType; //
             union{
                 struct ASTNode* statement;
-                struct ASTNode* function
+                struct ASTNode* function;
             };
         } programItems;
 
-        //need to implement
+        
         struct {
             char* functionIdentifier;
             char* parameterIdentifiers; // (optional)
@@ -165,6 +166,69 @@ typedef struct ASTNode {
 
 // end of AST types
 
+ASTNode* parseProgramItems(Token* tokenList, int currentToken){
+
+    ASTNode* programItem = malloc(sizeof(ASTNode)); // alloc space for a root node.
+    // what the fuck is going on here????
+    if (ast != NULL) {
+        ast->type = NODE_PROGRAM;
+        ast->next = NULL;
+
+        parseProgramItems(tokenList, &currentToken);
+
+    
+    }
+
+    if(tokenList[currentToken].type == TOKEN_FUNCTION){
+        
+    }
+
+
+}
+
+ASTNode* constructAST(Token* tokenList) {
+    int currentToken = 0;
+    int capacity = INITAL_ROOT_NODE_CAPACITY;
+    int amountOfProgramItems = 0;
+
+    // Allocate space for the root node
+    ASTNode* ast = malloc(sizeof(ASTNode));
+
+    if (ast == NULL) {
+        perror("failed to allocate memory for root node"); // cahnge to stderror
+        exit(EXIT_FAILURE);
+    }
+
+    (*ast).type = NODE_PROGRAM; //have to dereference these to change the value, idk how to do it otherwise
+    (*ast).next = NULL;
+
+    
+    (*ast).program.programItems = malloc(capacity * sizeof(ASTNode*)); // Initial allocation for program items
+    if ((*ast).program.programItems == NULL) {
+        error("failed to allocate memory for program items");  // cahnge to stderror
+        exit(EXIT_FAILURE);
+    }
+
+    while (tokenList[currentToken].type != TOKEN_EOF) {
+        // eeallocate memory for more program items if needed
+        if (amountOfProgramItems >= capacity) {
+            capacity *= 2;
+            (*ast).program.programItems = realloc((*ast).program.programItems, capacity * sizeof(ASTNode*));
+            if ((*ast).program.programItems == NULL) {
+                error("failed to reallocate memory for program items");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        //parse the next program item and add it to the array of nodes.
+        (*ast).program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
+    }
+    return ast;
+}
+
+
+
+
 int validateFileExt(const char *fileName){
     char *ext  = strrchr(fileName, '.'); // grab the mem address of where the extention begins in the file name
 
@@ -218,28 +282,19 @@ TokenType getTokenType(char* identifier){
 Token* lexer(FILE* file){   //this entire function is pretty much adapted from llvm Kaleidoscope (1.2)
     static int currentPosition = 0;
     static int currentLine = 1;
-    Token* tokens = malloc(sizeof(Token) * INITIAL_ARRAY_SIZE); //create an array of tokens in memory 
+    Token* tokens = malloc(sizeof(Token) * INITIAL_ARRAY_SIZE); //create an array of tokens in memory, todo: dynamic mem allocation
     static int amountOfTokens = 0;
 
     int currentCharacter = fgetc(file);
     currentPosition++;
 
-
-
     while (currentCharacter != EOF){
         //check for identifiers to do add new line stuff from other function s
-        if (currentCharacter == ' ') { // skip tokeniasation of spaces
+        if (currentCharacter == ' ' || currentCharacter == '\n' || currentCharacter == '\r') { // skip tokeniasation of spaces, new lines, and carrigae returns
             advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
             continue;
         }
-        if (currentCharacter == '\n') { // skip tokeniasation of new lines
-            advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
-            continue;
-        }
-        if (currentCharacter == '\r') { // windows CRLF bullshittery, remove before submiting
-            advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
-            continue;
-        }
+        // can optimise this, todo
         if(isalpha(currentCharacter)){
 
             char identifier[MAX_IDENTIFIER_LENGTH];
