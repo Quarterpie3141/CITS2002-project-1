@@ -9,6 +9,8 @@
 //todo - close fopen calls and free() malloc'd nodes
 int syntaxErrorFlag = 0;
 
+// these are the types declarations for the lexer and tokeniser
+
 typedef enum {
     TOKEN_IDENTIFIER,
     TOKEN_REAL,
@@ -28,13 +30,123 @@ typedef enum {
     TOKEN_COMMENT, // #
     TOKEN_UNKNOWN    // for syntax
 } TokenType;
-
 typedef struct {
     TokenType type;
     char* lexeme;  // The string representation of the token
     int line;      // Line number for error reporting
     int position;
 } Token;
+
+// end of lexer & tokeniser types 
+
+// these are the type declarations for the nodes in the abstract syntax tree
+
+typedef enum { // types of ast nodes(the structs for each type are in the same order as these types inside the ASTNode type)
+    NODE_ASSIGNMENT,
+    NODE_PRINT,
+    NODE_EXPRESSION,
+    NODE_TERM,
+    NODE_FACTOR
+    
+} ASTNodeType;
+typedef enum {
+        FACTOR_CONSTANT,
+        FACTOR_IDENTIFIER,
+        FACTOR_FUNCTION_CALL,
+        FACTOR_EXPRESSION
+} FactorType;
+typedef enum {
+        PROGRAM_STATEMENT,
+        PROGRAM_FUNCTION
+} ProgramItemType;
+
+typedef struct ASTNode {
+    ASTNodeType type;
+    struct ASTNode* next;   // adress of the next node in an expression list
+
+    union {                 // union allows you to have multiple, structs in this case, under one memory address. 
+                            // so each node has only one struct. but that struct can be any of the structs under union{}
+        
+         // need to implement
+        struct {
+            struct ASTNode* programItems; //(optional)
+        } program;
+
+         // need to implement
+        struct {
+            ProgramItemType programType; //
+            union{
+                struct ASTNode* statement;
+                struct ASTNode* function
+            };
+        } programItems;
+
+        //need to implement
+        struct {
+            struct ASTNode* programItems; //(optional)
+        } function;
+
+        //need to implement
+        struct {
+            struct ASTNode* programItems; //(optional)
+        } statement;
+
+        // x <- 5, this node has an identifier(x) and an expression node(5)
+        struct {
+            char* identifierName;   // (required)
+            struct ASTNode* expression; // (required)
+        } assignment;
+
+        // print(2.5), this node just has another expression node(2.5)
+        struct {
+            struct ASTNode* expression; //(required)
+        } printStatement;
+
+        // return(a+b), this node just has an expression node(a+b)
+        struct {
+            struct ASTNode* expression; //(required)
+        } returnStatement;
+
+        // 5+2, this node has a term node(5), an operator(+) and an expression(2) node
+        struct {
+            struct ASTNode* term; // left hand side of expression (required)
+            struct ASTNode* expresssion; // right hand side of expression (optional)
+            char operator; // middle of expression  (optional)
+        } expression;
+
+        // 6*4, this node has a factor node(6), an operator(*) and anoter term node(4)
+        struct {
+            struct ASTNode* factor; // left hand side of expression (required)
+            struct ASTNode* term;   // right hand side of expression (optional)
+            char operator;          // middle of expression (optional)
+        } term;
+
+        // factoes 
+        struct {
+             FactorType factorType;            // what the factor is(constant, identifier, functional call, expression)
+             union {
+                int constantValue;             // for when the factor is a real constant
+                char* identifierName;          // For when the factor is a variable
+                struct {
+                    char* function_name;        // for when the factor is a function call
+                    struct ASTNode* args;       // list of expressions for the function
+                } functionCall;                
+                struct ASTNode* expression;     // for when the function is another expression
+            };
+        } factor;
+
+        //add(2,4), this node has an identifier and a list of expressions
+        struct {
+            char* identifierName;
+            struct ASTNode* expressions;
+        } functionCall;
+
+
+
+    };
+} ASTNode;
+
+// end of AST types
 
 int validateFileExt(const char *fileName){
     char *ext  = strrchr(fileName, '.'); // grab the mem address of where the extention begins in the file name
