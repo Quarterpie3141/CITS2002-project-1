@@ -240,10 +240,10 @@ int validateFileExt(const char *fileName){
 }
 
 char *duplicateString(const char *string) {
-    int legnth = strlen(string) + 1; // get the length of the string including the null byte
-    char *copy = malloc(legnth);   // malloc enough  mem for the copy
+    int length = strlen(string) + 1; // get the length of the string including the null byte
+    char *copy = malloc(length);   // malloc enough  mem for the copy
     if (copy) {
-        memcpy(copy, string, legnth);   //copy the sting into mem
+        memcpy(copy, string, length);   //copy the sting into mem
     }
     return copy;    //
 }
@@ -298,13 +298,13 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
         if(isalpha(currentCharacter)){
 
             char identifier[MAX_IDENTIFIER_LENGTH];
-            int identifierLegnth = 0;
+            int identifierLength = 0;
 
             while(isalpha(currentCharacter)){ //store the entire identifier in a string
-                identifier[identifierLegnth] = currentCharacter;  
-                identifierLegnth++;
+                identifier[identifierLength] = currentCharacter;  
+                identifierLength++;
                 
-                if (identifierLegnth >= MAX_IDENTIFIER_LENGTH){
+                if (identifierLength >= MAX_IDENTIFIER_LENGTH){
                     fprintf(stderr, "! Identifier name is too long (12 letters) on line %d at position %d\n", currentLine, currentPosition);
                     syntaxErrorFlag = 1;    //throws and error and sets a flag if the identifier name is too long
                     break;
@@ -312,11 +312,11 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
                 currentCharacter = fgetc(file);
                 currentPosition++;
             }
-            identifier[identifierLegnth] = '\0';
+            identifier[identifierLength] = '\0';
 
             TokenType tokenType = getTokenType(identifier);
 
-            Token identifierToken = createToken(tokenType, identifier, currentLine, currentPosition-identifierLegnth);
+            Token identifierToken = createToken(tokenType, identifier, currentLine, currentPosition-identifierLength);
 
             addToken(tokens, &amountOfTokens, identifierToken);
 

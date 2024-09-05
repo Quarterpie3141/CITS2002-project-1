@@ -100,13 +100,13 @@ Token* lexer(FILE* file){
         if(isalpha(currentCharacter)){
 
             char identifier[MAX_IDENTIFIER_LENGTH];
-            int identifierLegnth = 0;
+            int identifierLength = 0;
 
             while(isalpha(currentCharacter)){ //store the entire identifier in a string
-                identifier[identifierLegnth] = currentCharacter;  
-                identifierLegnth++;
+                identifier[identifierLength] = currentCharacter;  
+                identifierLength++;
                 
-                if (identifierLegnth >= MAX_IDENTIFIER_LENGTH){
+                if (identifierLength >= MAX_IDENTIFIER_LENGTH){
                     fprintf(stderr, "! Identifier name is too long (12 letters) on line %d at position %d\n", currentLine, currentPosition);
                     syntaxErrorFlag = 1;    //throws and error and sets a flag if the identifier name is too long
                     break;
@@ -114,11 +114,11 @@ Token* lexer(FILE* file){
                 currentCharacter = fgetc(file);
                 currentPosition++;
             }
-            identifier[identifierLegnth] = '\0';
+            identifier[identifierLength] = '\0';
 
             TokenType tokenType = getTokenType(identifier);
 
-            Token identifierToken = createToken(tokenType, identifier, currentLine, currentPosition-identifierLegnth);
+            Token identifierToken = createToken(tokenType, identifier, currentLine, currentPosition-identifierLength);
 
             addToken(tokens, &amountOfTokens, identifierToken);
 
@@ -279,10 +279,10 @@ int main(int argc, char *argv[]){
         return EXIT_FAILURE;
     }
 
-    Token* tokens = lexer(file);
+    Token* tokens = lexer(file); // go through the file and turn into an array of tokens
     fclose(file);
 
-    for (int i = 0; ; i++) {
+    for (int i = 0; ; i++) {// Go throught the list of tokens until the EOF token
         printf("Token: %-12s Lexeme: %s (Line %d) (Position %d)\n",
                tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
                tokens[i].type == TOKEN_COMMENT ? "COMMENT" :
