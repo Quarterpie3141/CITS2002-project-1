@@ -87,7 +87,6 @@ typedef struct ASTNode {
             struct ASTNode** programItems; //(optional) double astrik to aloow the root node to store an arry of more nodes
         } program;
 
-        
         struct {
             ProgramItemType programType; //
             union{
@@ -96,7 +95,6 @@ typedef struct ASTNode {
             };
         } programItems;
 
-        
         struct {
             char* functionIdentifier;
             char* parameterIdentifiers; // (optional)
@@ -170,6 +168,7 @@ ASTNode* parseProgramItems(Token* tokenList, int currentToken){
 
     ASTNode* programItem = malloc(sizeof(ASTNode)); // alloc space for a root node.
     // what the fuck is going on here????
+    ASTNode* ast = malloc(sizeof(ASTNode)); //<------ this is not the AST, this is a proganskd
     if (ast != NULL) {
         ast->type = NODE_PROGRAM;
         ast->next = NULL;
@@ -195,7 +194,7 @@ ASTNode* constructAST(Token* tokenList) {
     ASTNode* ast = malloc(sizeof(ASTNode));
 
     if (ast == NULL) {
-        perror("failed to allocate memory for root node"); // cahnge to stderror
+        error("failed to allocate memory for root node"); // cahnge to stderror
         exit(EXIT_FAILURE);
     }
 
@@ -289,12 +288,13 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
     currentPosition++;
 
     while (currentCharacter != EOF){
-        //check for identifiers to do add new line stuff from other function s
+        // can optimise this, todo
         if (currentCharacter == ' ' || currentCharacter == '\n' || currentCharacter == '\r') { // skip tokeniasation of spaces, new lines, and carrigae returns
             advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
             continue;
         }
-        // can optimise this, todo
+        
+        //check for identifiers to do add new line stuff from other function s
         if(isalpha(currentCharacter)){
 
             char identifier[MAX_IDENTIFIER_LENGTH];
