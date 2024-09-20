@@ -1499,10 +1499,18 @@ void printSymbolList(Symbol** symbols, int symbolCount) {
         }
     }
 }
+void printUsage() {
+    fprintf(stderr, "Usage: runml <input_file.ml> [arguments...]\n");
+    fprintf(stderr, "  <input_file.ml>   Path to the .ml source file to be compiled.\n");
+    fprintf(stderr, "  [arguments...]     Optional arguments that the .ml program can use.\n\n");
+    fprintf(stderr, "Example:\n");
+    fprintf(stderr, "runml program.ml arg1 arg2\n");
+}
 
 int main(int argc, char *argv[]){
     if(argc < 2){  //check that the user provided cli arguments
         fprintf(stderr, "! At least one command line argument is required\n");
+        printUsage();
         return EXIT_FAILURE;
     }
 
@@ -1572,7 +1580,6 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "! Output failed to run, failed with error code %d\n", runResult);
         return 1;
     } 
-
     
     //delete the output.c file
     int removeResult = remove("output.c");
@@ -1580,18 +1587,13 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "! System not able to delete 'output.c' file , failed with error code %d\n", removeResult);
         return 1;
     } 
-
     
     //delete the compiled output file
-  
     int removeCompiledResult = remove("output");
     if (removeCompiledResult != 0){
         fprintf(stderr, "! System not able to delete compiled 'output' file , failed with error code %d\n", removeCompiledResult);
         return 1;
     } 
-
-    
-
 
     return EXIT_SUCCESS;
 }
