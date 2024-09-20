@@ -8,6 +8,7 @@
 #define INITIAL_ARRAY_SIZE 1024
 #define INITAL_ROOT_NODE_CAPACITY 2
 //todo - close fopen calls and free() malloc'd nodes
+
 int syntaxErrorFlag = 0;
 
 // these are the types declarations for the lexer and tokeniser
@@ -161,6 +162,7 @@ typedef struct ASTNode {
 
     };
 } ASTNode;
+
 typedef enum {
     SYMBOL_VARIABLE,
     SYMBOL_FUNCTION
@@ -186,7 +188,7 @@ char *duplicateString(const char *string) {
 
 Symbol* symbolList[MAX_IDENTIFIERS];
 
-// symbols are just already defined identifiers, they can be variables or function calls
+// symbols are just already declared identifiers, they can be variables or function calls
 void addSymbol(char* name, SymbolType type) {
     static int currentSymbol = 0; // keep track of the current number of symbols, TODO: warn the user when they use too many identifiers
     Symbol* symbol = malloc(sizeof(Symbol));
@@ -230,7 +232,6 @@ char** parseParameterList(Token* tokenList, int* currentToken);
 // if a 'function' token is found `parseFunction` will take care of
 // consuming all the tokens related to the function and checking syntax
 ASTNode* parseFunction(Token* tokenList, int* currentToken) {
-    //assign memory for the node
     ASTNode* functionNode = malloc(sizeof(ASTNode));
     if (functionNode == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
@@ -245,10 +246,9 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
         syntaxErrorFlag = 1;
         return NULL;
     }
-
     (*currentToken)++;
 
-    // Expect thefunction identifier
+    // Expect function identifier
     if (tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
         fprintf(stderr, "Expected function name\n");
         syntaxErrorFlag = 1;
@@ -256,26 +256,18 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
     }
 
     functionNode->function.functionIdentifier = duplicateString(tokenList[*currentToken].lexeme);
-    addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_FUNCTION);
-    (*currentToken)++;
-
-    // check for '(' and warn them if there isnt any
-    // for functions with a single parameter this still works, but will break for ones with more than 1
-    if (tokenList[*currentToken].type != TOKEN_LPAREN) {
-        fprintf(stderr, "Warning,'(' after function name is reccomended\n");
-    }
+    addSymbol(tokenList[*currentToken].lexeme, SYMBOL_FUNCTION);
     (*currentToken)++;
 
     // Parse parameters
     functionNode->function.parameterIdentifiers = parseParameterList(tokenList, currentToken);
 
-    // same thing as line 264
-    if (tokenList[*currentToken].type != TOKEN_RPAREN) {
-        fprintf(stderr, "Warning, ')' after function parameters is reccomended\n");
+    // Add parameters to symbol table
+    for (int i = 0; functionNode->function.parameterIdentifiers[i] != NULL; i++) {
+        addSymbol(functionNode->function.parameterIdentifiers[i], SYMBOL_VARIABLE);
     }
-    (*currentToken)++;
 
-    // Parse function body (statements) TODO: this shoudl be able to parse a list of functions
+    // Parse function body (statements)
     functionNode->function.statements = parseStatementList(tokenList, currentToken);
 
     return functionNode;
@@ -316,32 +308,39 @@ char** parseParameterList(Token* tokenList, int* currentToken) {
     while (tokenList[*currentToken].type == TOKEN_IDENTIFIER) {
         parameters[paramCount++] = duplicateString(tokenList[*currentToken].lexeme);
         (*currentToken)++;
-
+        
+        // Skip commas if present
         if (tokenList[*currentToken].type == TOKEN_COMMA) {
             (*currentToken)++; // Skip ','
-        } else {
-            break;
         }
     }
 
     parameters[paramCount] = NULL; // Null-terminate the list
     return parameters;
 }
-
 // this node is secretly a linked list, since function bodies, and the top level program
 // can have multiple statements or functions. the linked list ensures that all statements are accounted for
 // TODO: consider tab indentations
 ASTNode* parseStatementList(Token* tokenList, int* currentToken) {
-    //init index 0 of the linked list
     ASTNode* head = NULL;
     ASTNode* tail = NULL;
 
+    // Assume that the function body starts with a TAB token
+    if (tokenList[*currentToken].type != TOKEN_TAB) {
+        fprintf(stderr, "Expected indentation in function body\n");
+        syntaxErrorFlag = 1;
+        return NULL;
+    }
+
+    // Consume the initial TAB token
+    (*currentToken)++;
+
     while (tokenList[*currentToken].type != TOKEN_EOF &&
            tokenList[*currentToken].type != TOKEN_FUNCTION &&
-           tokenList[*currentToken].type != TOKEN_RETURN) {
+           tokenList[*currentToken].type != TOKEN_TAB) { // Assuming dedent is represented by lack of TAB
         ASTNode* statement = parseStatement(tokenList, currentToken);
         if (statement == NULL) {
-            // TODO: Handle parsing error
+            // Handle parsing error
             return NULL;
         }
 
@@ -352,21 +351,12 @@ ASTNode* parseStatementList(Token* tokenList, int* currentToken) {
             tail->next = statement;
             tail = statement;
         }
-    }
 
-    // Handle return statement
-    if (tokenList[*currentToken].type == TOKEN_RETURN) {
-        ASTNode* returnStmt = parseStatement(tokenList, currentToken);
-        if (returnStmt == NULL) {
-            return NULL;
-        }
-
-        if (head == NULL) {
-            head = returnStmt;
-            tail = returnStmt;
+        // Check for TAB token at the beginning of the next line
+        if (tokenList[*currentToken].type == TOKEN_TAB) {
+            (*currentToken)++; // Consume TAB
         } else {
-            tail->next = returnStmt;
-            tail = returnStmt;
+            break; // End of indented block
         }
     }
 
@@ -1083,7 +1073,7 @@ TokenType getTokenType(char* identifier){
     return TOKEN_IDENTIFIER;
 }
 
-Token* lexer(FILE* file){   //this entire function is pretty much adapted from llvm Kaleidoscope (1.2)
+Token* lexer(FILE* file){   //this entire function is pretty much adapted from llvm Kaleidoscope
     static int currentPosition = 0;
     static int currentLine = 1;
     Token* tokens = malloc(sizeof(Token) * INITIAL_ARRAY_SIZE); //create an array of tokens in memory, todo: dynamic mem allocation
@@ -1280,6 +1270,7 @@ void printIndent(int indentLevel) {
     }
     printf("|_");
 }
+
 // dont need this
 void printAST(ASTNode* node, int indentLevel) {
     if (node == NULL) {

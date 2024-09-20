@@ -1,2 +1,3 @@
-# 3.500000 is printed
-print 3.5
+# an assignment statement, 2.500000 is printed
+x <- 2.5
+print x
