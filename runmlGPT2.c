@@ -82,90 +82,78 @@ typedef enum {
 } StatementType;
 
 typedef struct ASTNode ASTNode;
+typedef struct ASTNode ASTNode;
 typedef struct ASTNode {
     ASTNodeType type;
     ASTNode* next;
-    union {                 // union allows you to have multiple, structs in this case, under one memory address. 
-                            // so each node has only one struct. but that struct can be any of the structs under union{}
-        
-         // root node
+    union {
+        // Root node
         struct {
-            struct ASTNode** programItems; //(optional) double astrik to aloow the root node to store an arry of more nodes
+            struct ASTNode** programItems;
         } program;
 
         struct {
-            ProgramItemType programType; //
-            union{
+            ProgramItemType programType;
+            union {
                 struct ASTNode* statement;
                 struct ASTNode* function;
-            };
+            } item;
         } programItems;
 
         struct {
             char* functionIdentifier;
-            char** parameterIdentifiers; // (optional)
-            struct ASTNode* statements;
+            char** parameterIdentifiers;
+            struct ASTNode* statements; // Linked list of statements
         } function;
 
-        //need to implement
         struct {
             StatementType statementType;
             struct ASTNode* statement;
         } statement;
 
-        // x <- 5, this node has an identifier(x) and an expression node(5)
         struct {
-            char* assignmentIdentifierName;   // (required)
-            struct ASTNode* expression; // (required)
+            char* identifierName;
+            struct ASTNode* expression;
         } assignment;
 
-        // print(2.5), this node just has another expression node(2.5)
         struct {
-            struct ASTNode* expression; //(required)
+            struct ASTNode* expression;
         } printStatement;
 
-        // return(a+b), this node just has an expression node(a+b)
         struct {
-            struct ASTNode* expression; //(required)
+            struct ASTNode* expression;
         } returnStatement;
 
-        // 5+2, this node has a term node(5), an operator(+) and an expression(2) node
         struct {
-            struct ASTNode* term; // left hand side of expression (required)
-            struct ASTNode* expression; // right hand side of expression (optional)
-            char operator; // middle of expression  (optional)
-        } expression;
+            struct ASTNode* term;
+            struct ASTNode* expression;
+            char operator;
+        } expressionNode; // Renamed to avoid conflict
 
-        // 6*4, this node has a factor node(6), an operator(*) and anoter term node(4)
         struct {
-            struct ASTNode* factor; // left hand side of expression (required)
-            struct ASTNode* term;   // right hand side of expression (optional)
-            char operator;          // middle of expression (optional)
-        } term;
+            struct ASTNode* factor;
+            struct ASTNode* term;
+            char operator;
+        } termNode; // Renamed to avoid conflict
 
-        // factoes 
         struct {
-             FactorType factorType;            // what the factor is(constant, identifier, functional call, expression)
-             union {
-                char* constantValue;             // for when the factor is a real constant
-                char* factoridentifierName;          // For when the factor is a variable
+            FactorType factorType;
+            union {
+                double constantValue;
+                char* identifierName;
                 struct {
-                    char* function_name;        // for when the factor is a function call
-                    struct ASTNode* args;       // list of expressions for the function
-                } functionCall;                
-                struct ASTNode* expression;     // for when the factor is another expression
-            };
+                    char* function_name;
+                    ASTNode* args;
+                } functionCall;
+                ASTNode* expression;
+            } value; // Named union for clarity
         } factor;
 
-        //add(2,4), this node has an identifier and a list of expressions
         struct {
-            char* functionCallIdentifierName;
+            char* identifierName;
             struct ASTNode* expressions;
-        } functionCall;
-
-
-
-    };
+        } functionCallStatement;
+    } data; // Named union for the main union
 } ASTNode;
 
 typedef enum {
@@ -231,7 +219,7 @@ ASTNode* parseTerm(Token* tokenList, int* currentToken);
 ASTNode* parseFactor(Token* tokenList, int* currentToken);
 ASTNode* parseFunctionCall(Token* tokenList, int* currentToken);
 ASTNode* parseArgumentList(Token* tokenList, int* currentToken);
-char** parseParameterList(Token* tokenList, int* currentToken);
+char** parseParameterList(Token* tokenList, int* currentToken, int hasParentheses);
 
 
 // if a 'function' token is found `parseFunction` will take care of
@@ -260,20 +248,33 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
         return NULL;
     }
 
-    functionNode->function.functionIdentifier = duplicateString(tokenList[*currentToken].lexeme);
+    functionNode->data.function.functionIdentifier = duplicateString(tokenList[*currentToken].lexeme);
+    
     addSymbol(tokenList[*currentToken].lexeme, SYMBOL_FUNCTION);
     (*currentToken)++;
 
-    // Parse parameters
-    functionNode->function.parameterIdentifiers = parseParameterList(tokenList, currentToken);
+    // Check for '('
+    int hasParentheses = 0;
+    if (tokenList[*currentToken].type == TOKEN_LPAREN) {
+        hasParentheses = 1;
+        (*currentToken)++; // Skip '('
+    }
 
-    // Add parameters to symbol table
-    for (int i = 0; functionNode->function.parameterIdentifiers[i] != NULL; i++) {
-        addSymbol(functionNode->function.parameterIdentifiers[i], SYMBOL_VARIABLE);
+    // Parse parameters
+    functionNode->data.function.parameterIdentifiers = parseParameterList(tokenList, currentToken, hasParentheses);
+
+    // If there was '(', expect ')'
+    if (hasParentheses == 1) {
+        if (tokenList[*currentToken].type != TOKEN_RPAREN) {
+            fprintf(stderr, "Expected ')' after function parameters\n");
+            syntaxErrorFlag = 1;
+            return NULL;
+        }
+        (*currentToken)++; // Skip ')'
     }
 
     // Parse function body (statements)
-    functionNode->function.statements = parseStatementList(tokenList, currentToken);
+    functionNode->data.function.statements = parseStatementList(tokenList, currentToken);
 
     return functionNode;
 }
@@ -293,36 +294,61 @@ ASTNode* parseProgramItems(Token* tokenList, int* currentToken) {
     if (token.type == TOKEN_FUNCTION) {
         // Construct a function node
         programItem->type = NODE_PROGRAM_ITEMS;
-        programItem->programItems.programType = PROGRAM_FUNCTION;
-        programItem->programItems.function = parseFunction(tokenList, currentToken);
+        programItem->data.programItems.programType = PROGRAM_FUNCTION;
+        programItem->data.programItems.item.function = parseFunction(tokenList, currentToken);
     } else {
         // Construct a statement node
         programItem->type = NODE_PROGRAM_ITEMS;
-        programItem->programItems.programType = PROGRAM_STATEMENT;
-        programItem->programItems.statement = parseStatement(tokenList, currentToken);
+        programItem->data.programItems.programType = PROGRAM_STATEMENT;
+        programItem->data.programItems.item.statement = parseStatement(tokenList, currentToken);
     }
 
     return programItem;
 }
 
 // for function nodes, and functioncall nodes, this function parses the list of parameters provided
-char** parseParameterList(Token* tokenList, int* currentToken) {
+char** parseParameterList(Token* tokenList, int* currentToken, int hasParentheses) {
     char** parameters = malloc(MAX_IDENTIFIERS * sizeof(char*));
     int paramCount = 0;
 
+    // If no parentheses, and the next token is not an identifier, there are no parameters
+    if (hasParentheses == 0 && tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
+        parameters[paramCount] = NULL; // Null-terminate the list
+        return parameters;
+    }
+
     while (tokenList[*currentToken].type == TOKEN_IDENTIFIER) {
         parameters[paramCount++] = duplicateString(tokenList[*currentToken].lexeme);
+        addSymbol(tokenList[*currentToken].lexeme, SYMBOL_VARIABLE);
         (*currentToken)++;
-        
-        // Skip commas if present
-        if (tokenList[*currentToken].type == TOKEN_COMMA) {
-            (*currentToken)++; // Skip ','
+
+        // If parameters are within parentheses, check for comma
+        if (hasParentheses == 1) {
+            if (tokenList[*currentToken].type == TOKEN_COMMA) {
+                (*currentToken)++; // Skip ','
+            } else {
+                // No comma, break if next token is ')'
+                if (tokenList[*currentToken].type == TOKEN_RPAREN) {
+                    break;
+                } else {
+                    fprintf(stderr, "Expected ',' or ')' in parameter list\n");
+                    syntaxErrorFlag = 1;
+                    break;
+                }
+            }
+        } else {
+            // If no parentheses, stop parsing if next token is not an identifier
+            if (tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
+                break;
+            }
         }
     }
 
     parameters[paramCount] = NULL; // Null-terminate the list
     return parameters;
 }
+
+
 // this node is secretly a linked list, since function bodies, and the top level program
 // can have multiple statements or functions. the linked list ensures that all statements are accounted for
 // TODO: consider tab indentations
@@ -385,21 +411,23 @@ ASTNode* parseStatement(Token* tokenList, int* currentToken) {
         // Could be an assignment or function call
         if (tokenList[*currentToken + 1].type == TOKEN_ASSIGN) {
             // Assignment
-            statementNode->statement.statementType = STATEMENT_ASSIGNMENT;
-            statementNode->statement.statement = parseAssignment(tokenList, currentToken);
+            statementNode->data.statement.statementType = STATEMENT_ASSIGNMENT;
+            statementNode->data.statement.statement = parseAssignment(tokenList, currentToken);
+            fprintf(stderr, "Entered assign with currentToken: %d\n", *currentToken);
+            
         } else {
             // Function call
-            statementNode->statement.statementType = STATEMENT_FUNCTION_CALL;
-            statementNode->statement.statement = parseFunctionCall(tokenList, currentToken);
+            statementNode->data.statement.statementType = STATEMENT_FUNCTION_CALL;
+            statementNode->data.statement.statement = parseFunctionCall(tokenList, currentToken);
         }
     } else if (token.type == TOKEN_PRINT) {
         // Print statement
-        statementNode->statement.statementType = STATEMENT_PRINT;
-        statementNode->statement.statement = parsePrintStatement(tokenList, currentToken);
+        statementNode->data.statement.statementType = STATEMENT_PRINT;
+        statementNode->data.statement.statement = parsePrintStatement(tokenList, currentToken);
     } else if (token.type == TOKEN_RETURN) {
         // Return statement
-        statementNode->statement.statementType = STATEMENT_RETURN;
-        statementNode->statement.statement = parseReturnStatement(tokenList, currentToken);
+        statementNode->data.statement.statementType = STATEMENT_RETURN;
+        statementNode->data.statement.statement = parseReturnStatement(tokenList, currentToken);
     } else {
         fprintf(stderr, "! Unexpected token '%s' in statement\n", token.lexeme);
         syntaxErrorFlag = 1;
@@ -412,7 +440,7 @@ ASTNode* parseStatement(Token* tokenList, int* currentToken) {
 
 // pretty straightforward, just checks that the assignment is structured correctly
 ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
-    // Allocate memory for the assignment node
+    //assign mem 
     ASTNode* assignmentNode = malloc(sizeof(ASTNode));
     if (assignmentNode == NULL) {
         fprintf(stderr, "! Memory allocation failed\n");
@@ -422,34 +450,20 @@ ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
     assignmentNode->type = NODE_ASSIGNMENT;
 
     // Expect an identifier and add it to the list of known symbols
-    if (tokenList[*currentToken].type == TOKEN_IDENTIFIER) {
-        
-        // Debugging: print the identifier being assigned
-        printf("Parsing assignment: identifier = %s\n", tokenList[*currentToken].lexeme); //AI CODE
+    assignmentNode->data.assignment.identifierName = duplicateString(tokenList[*currentToken].lexeme);
+    addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_VARIABLE);
+    (*currentToken)++;
 
-
-
-        // Set the identifierName in the AST node and add it to the symbol table
-        assignmentNode->assignment.assignmentIdentifierName = duplicateString(tokenList[*currentToken].lexeme);
-        addSymbol(tokenList[*currentToken].lexeme, SYMBOL_VARIABLE);
-        (*currentToken)++; // Move to the next token (expecting '<-')
-    } else {
-        fprintf(stderr, "! Expected an identifier for assignment on line %d at position %d\n",
-                tokenList[*currentToken].line, tokenList[*currentToken].position);
-        syntaxErrorFlag = 1;
-        return NULL;
-    }
-
-    // Expect a '<-' token
+    // Expect a '<-'
     if (tokenList[*currentToken].type != TOKEN_ASSIGN) {
         fprintf(stderr, "! Expected '<-' in assignment\n");
         syntaxErrorFlag = 1;
         return NULL;
     }
-    (*currentToken)++; // Move to the next token (expecting an expression)
+    (*currentToken)++;
 
-    // Parse the expression
-    assignmentNode->assignment.expression = parseExpression(tokenList, currentToken);
+    // Parse expression
+    assignmentNode->data.assignment.expression = parseExpression(tokenList, currentToken);
 
     return assignmentNode;
 }
@@ -472,7 +486,7 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
         (*currentToken)++; // Skip '('
 
         // parse the expression
-        printNode->printStatement.expression = parseExpression(tokenList, currentToken);
+        printNode->data.printStatement.expression = parseExpression(tokenList, currentToken);
 
         // expect a ')'
         if (tokenList[*currentToken].type != TOKEN_RPAREN) {
@@ -484,7 +498,7 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
     } else {
         // no '(', parse expression directly
         fprintf(stderr, "! Warning no '()' in print statement is not reccomended\n");
-        printNode->printStatement.expression = parseExpression(tokenList, currentToken);
+        printNode->data.printStatement.expression = parseExpression(tokenList, currentToken);
     }
 
     return printNode;
@@ -504,23 +518,23 @@ ASTNode* parseReturnStatement(Token* tokenList, int* currentToken) {
     (*currentToken)++;
 
     // parse expression
-    returnNode->returnStatement.expression = parseExpression(tokenList, currentToken);
+    returnNode->data.returnStatement.expression = parseExpression(tokenList, currentToken);
 
     return returnNode;
 }
 
 //a function call can be identified since it is a just a identifier with a list of parameters()
 ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
+    fprintf(stderr, "Entered parseFunctionCall with currentToken: %d\n", *currentToken);
     ASTNode* functionCallNode = malloc(sizeof(ASTNode));
     if (functionCallNode == NULL) {
         fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
-
     functionCallNode->type = NODE_FUNCTION_CALL;
 
     // expect identifier
-    functionCallNode->functionCall.functionCallIdentifierName = duplicateString(tokenList[*currentToken].lexeme);
+    functionCallNode->data.functionCallStatement.identifierName = duplicateString(tokenList[*currentToken].lexeme);
     (*currentToken)++;
 
     // expect '('
@@ -532,7 +546,7 @@ ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
     (*currentToken)++;
 
     // parse arguments if there are any
-    functionCallNode->functionCall.expressions = parseArgumentList(tokenList, currentToken);
+    functionCallNode->data.functionCallStatement.expressions = parseArgumentList(tokenList, currentToken);
 
     // expect a ')'
     if (tokenList[*currentToken].type != TOKEN_RPAREN) {
@@ -593,12 +607,12 @@ ASTNode* parseExpression(Token* tokenList, int* currentToken) {
         }
 
         exprNode->type = NODE_EXPRESSION;
-        exprNode->expression.term = left;
-        exprNode->expression.operator = token.lexeme[0];
+        exprNode->data.expressionNode.term = left;
+        exprNode->data.expressionNode.operator = token.lexeme[0];
         (*currentToken)++;
 
         // Parse the right side of the expression
-        exprNode->expression.expression = parseTerm(tokenList, currentToken);
+        exprNode->data.expressionNode.expression = parseTerm(tokenList, currentToken);
 
         left = exprNode;
         token = tokenList[*currentToken];
@@ -622,12 +636,12 @@ ASTNode* parseTerm(Token* tokenList, int* currentToken) {
         }
 
         termNode->type = NODE_TERM;
-        termNode->term.factor = left;
-        termNode->term.operator = token.lexeme[0];
+        termNode->data.termNode.factor = left;
+        termNode->data.termNode.operator = token.lexeme[0];
         (*currentToken)++;
 
         // Parse the right side of the term
-        termNode->term.term = parseFactor(tokenList, currentToken);
+        termNode->data.termNode.term = parseFactor(tokenList, currentToken);
 
         left = termNode;
         token = tokenList[*currentToken];
@@ -648,11 +662,11 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
 
     if (token.type == TOKEN_REAL) {
         // Constant value
-        factorNode->factor.factorType = FACTOR_CONSTANT;
-        factorNode->factor.constantValue = token.lexeme;
+        factorNode->data.factor.factorType = FACTOR_CONSTANT;
+        factorNode->data.factor.value.constantValue = atof(token.lexeme);
         (*currentToken)++;
     } else if (token.type == TOKEN_IDENTIFIER) {
-        // the council(symbol table) will decide your fate
+        // The symbol table decides whether it's a function or variable
         Symbol* symbol = findSymbol(token.lexeme);
         if (symbol == NULL) {
             fprintf(stderr, "! Error: Undefined identifier '%s'\n", token.lexeme);
@@ -662,12 +676,12 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
 
         if (symbol->type == SYMBOL_FUNCTION && tokenList[*currentToken + 1].type == TOKEN_LPAREN) {
             // Function call
-            factorNode->factor.factorType = FACTOR_FUNCTION_CALL;
-            factorNode->factor.functionCall.function_name = duplicateString(token.lexeme);
+            factorNode->data.factor.factorType = FACTOR_FUNCTION_CALL;
+            factorNode->data.factor.value.functionCall.function_name = duplicateString(token.lexeme);
             (*currentToken) += 2; // Skip identifier and '('
 
             // Parse arguments
-            factorNode->factor.functionCall.args = parseArgumentList(tokenList, currentToken);
+            factorNode->data.factor.value.functionCall.args = parseArgumentList(tokenList, currentToken);
 
             // Expect ')'
             if (tokenList[*currentToken].type != TOKEN_RPAREN) {
@@ -678,8 +692,8 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
             (*currentToken)++;
         } else if (symbol->type == SYMBOL_VARIABLE) {
             // Variable
-            factorNode->factor.factorType = FACTOR_IDENTIFIER;
-            factorNode->factor.factoridentifierName = duplicateString(token.lexeme);
+            factorNode->data.factor.factorType = FACTOR_IDENTIFIER;
+            factorNode->data.factor.value.identifierName = duplicateString(token.lexeme);
             (*currentToken)++;
         } else {
             fprintf(stderr, "! Error: '%s' is not a variable or function\n", token.lexeme);
@@ -689,8 +703,8 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
     } else if (token.type == TOKEN_LPAREN) {
         // Parenthesized expression
         (*currentToken)++; // Skip '('
-        factorNode->factor.factorType = FACTOR_EXPRESSION;
-        factorNode->factor.expression = parseExpression(tokenList, currentToken);
+        factorNode->data.factor.factorType = FACTOR_EXPRESSION;
+        factorNode->data.factor.value.expression = parseExpression(tokenList, currentToken);
 
         // Expect ')'
         if (tokenList[*currentToken].type != TOKEN_RPAREN) {
@@ -724,8 +738,8 @@ ASTNode* constructAST(Token* tokenList) {
     ast->type = NODE_PROGRAM;
     ast->next = NULL;
 
-    ast->program.programItems = malloc(capacity * sizeof(ASTNode*)); // Initial allocation for program items
-    if (ast->program.programItems == NULL) {
+    ast->data.program.programItems = malloc(capacity * sizeof(ASTNode*)); // Initial allocation for program items
+    if (ast->data.program.programItems == NULL) {
         fprintf(stderr, "! Failed to allocate memory for program items\n");
         exit(EXIT_FAILURE);
     }
@@ -734,19 +748,19 @@ ASTNode* constructAST(Token* tokenList) {
         // Reallocate memory for more program items if needed
         if (amountOfProgramItems >= capacity) {
             capacity *= 2;
-            ast->program.programItems = realloc(ast->program.programItems, capacity * sizeof(ASTNode*));
-            if (ast->program.programItems == NULL) {
+            ast->data.program.programItems = realloc(ast->data.program.programItems, capacity * sizeof(ASTNode*));
+            if (ast->data.program.programItems == NULL) {
                 fprintf(stderr, "! Failed to reallocate memory for program items\n");
                 exit(EXIT_FAILURE);
             }
         }
 
         // Parse the next program item and add it to the array of nodes
-        ast->program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
+        ast->data.program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
     }
 
     // Null-terminate the program items array
-    ast->program.programItems[amountOfProgramItems] = NULL;
+    ast->data.program.programItems[amountOfProgramItems] = NULL;
 
     return ast;
 }
@@ -804,11 +818,11 @@ void generateCode(ASTNode* ast, const char* outputFilename) {
     // Generate code for top-level statements
     // For simplicity, we'll assume that the program items are statements to be placed in main
     if (ast->type == NODE_PROGRAM) {
-        for (int i = 0; ast->program.programItems[i] != NULL; i++) {
-            ASTNode* programItem = ast->program.programItems[i];
-            if (programItem->programItems.programType == PROGRAM_STATEMENT) {
-                generateStatement(programItem->programItems.statement, outputFile);
-            } else if (programItem->programItems.programType == PROGRAM_FUNCTION) {
+        for (int i = 0; ast->data.program.programItems[i] != NULL; i++) {
+            ASTNode* programItem = ast->data.program.programItems[i];
+            if (programItem->data.programItems.programType == PROGRAM_STATEMENT) {
+                generateStatement(programItem->data.programItems.item.statement, outputFile);
+            } else if (programItem->data.programItems.programType == PROGRAM_FUNCTION) {
                 // Function definitions are already generated above
             }
         }
@@ -828,8 +842,8 @@ void generateProgram(ASTNode* node, FILE* outputFile) {
     }
 
     // Generate code for each program item
-    for (int i = 0; node->program.programItems[i] != NULL; i++) {
-        generateProgramItem(node->program.programItems[i], outputFile);
+    for (int i = 0; node->data.program.programItems[i] != NULL; i++) {
+        generateProgramItem(node->data.program.programItems[i], outputFile);
     }
 }
 
@@ -838,8 +852,8 @@ void generateProgramItem(ASTNode* node, FILE* outputFile) {
         return;
     }
 
-    if (node->programItems.programType == PROGRAM_FUNCTION) {
-        generateFunction(node->programItems.function, outputFile);
+    if (node->data.programItems.programType == PROGRAM_FUNCTION) {
+        generateFunction(node->data.programItems.item.function, outputFile);
     }
     // Statements are handled in main for this example
 }
@@ -850,10 +864,10 @@ void generateFunction(ASTNode* node, FILE* outputFile) {
     }
 
     // Emit function signature
-    fprintf(outputFile, "double %s(", node->function.functionIdentifier);
+    fprintf(outputFile, "double %s(", node->data.function.functionIdentifier);
 
     // Emit parameters
-    char** params = node->function.parameterIdentifiers;
+    char** params = node->data.function.parameterIdentifiers;
     for (int i = 0; params && params[i] != NULL; i++) {
         fprintf(outputFile, "double %s", params[i]);
         if (params[i + 1] != NULL) {
@@ -865,7 +879,7 @@ void generateFunction(ASTNode* node, FILE* outputFile) {
     increaseIndent();
 
     // Emit function body (statements)
-    ASTNode* statement = node->function.statements;
+    ASTNode* statement = node->data.function.statements;
     while (statement != NULL) {
         generateStatement(statement, outputFile);
         statement = statement->next;
@@ -882,21 +896,21 @@ void generateStatement(ASTNode* node, FILE* outputFile) {
 
     emitIndentation(outputFile);
 
-    switch (node->statement.statementType) {
+    switch (node->data.statement.statementType) {
         case STATEMENT_ASSIGNMENT:
-            generateAssignment(node->statement.statement, outputFile);
+            generateAssignment(node->data.statement.statement, outputFile);
             break;
 
         case STATEMENT_PRINT:
-            generatePrintStatement(node->statement.statement, outputFile);
+            generatePrintStatement(node->data.statement.statement, outputFile);
             break;
 
         case STATEMENT_RETURN:
-            generateReturnStatement(node->statement.statement, outputFile);
+            generateReturnStatement(node->data.statement.statement, outputFile);
             break;
 
         case STATEMENT_FUNCTION_CALL:
-            generateFunctionCall(node->statement.statement, outputFile);
+            generateFunctionCall(node->data.statement.statement, outputFile);
             fprintf(outputFile, ";\n");
             break;
 
@@ -914,8 +928,8 @@ void generateAssignment(ASTNode* node, FILE* outputFile) {
 
     // For simplicity, declare the variable if first time, otherwise assign
     // In a complete implementation, you would track variable declarations
-    fprintf(outputFile, "double %s = ", node->assignment.assignmentIdentifierName);
-    generateExpression(node->assignment.expression, outputFile);
+    fprintf(outputFile, "double %s = ", node->data.assignment.identifierName);
+    generateExpression(node->data.assignment.expression, outputFile);
     fprintf(outputFile, ";\n");
 }
 
@@ -926,7 +940,7 @@ void generatePrintStatement(ASTNode* node, FILE* outputFile) {
     }
 
     fprintf(outputFile, "printf(\"%%f\\n\", ");
-    generateExpression(node->printStatement.expression, outputFile);
+    generateExpression(node->data.printStatement.expression, outputFile);
     fprintf(outputFile, ");\n");
 }
 
@@ -937,7 +951,7 @@ void generateReturnStatement(ASTNode* node, FILE* outputFile) {
     }
 
     fprintf(outputFile, "return ");
-    generateExpression(node->returnStatement.expression, outputFile);
+    generateExpression(node->data.returnStatement.expression, outputFile);
     fprintf(outputFile, ";\n");
 }
 
@@ -948,9 +962,9 @@ void generateExpression(ASTNode* node, FILE* outputFile) {
     }
 
     if (node->type == NODE_EXPRESSION) {
-        generateTerm(node->expression.term, outputFile);
-        fprintf(outputFile, " %c ", node->expression.operator);
-        generateExpression(node->expression.expression, outputFile);
+        generateTerm(node->data.expressionNode.term, outputFile);
+        fprintf(outputFile, " %c ", node->data.expressionNode.operator);
+        generateExpression(node->data.expressionNode.expression, outputFile);
     } else if (node->type == NODE_TERM) {
         generateTerm(node, outputFile);
     } else {
@@ -966,9 +980,9 @@ void generateTerm(ASTNode* node, FILE* outputFile) {
     }
 
     if (node->type == NODE_TERM) {
-        generateFactor(node->term.factor, outputFile);
-        fprintf(outputFile, " %c ", node->term.operator);
-        generateTerm(node->term.term, outputFile);
+        generateFactor(node->data.termNode.factor, outputFile);
+        fprintf(outputFile, " %c ", node->data.termNode.operator);
+        generateTerm(node->data.termNode.term, outputFile);
     } else if (node->type == NODE_FACTOR) {
         generateFactor(node, outputFile);
     } else {
@@ -983,40 +997,46 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
         return;
     }
 
-    switch (node->factor.factorType) {
+    switch (node->data.factor.factorType) {
         case FACTOR_CONSTANT:
-            fprintf(outputFile, "%f", atof(node->factor.constantValue)); // convert the char to a float, kinda not needed
+            fprintf(outputFile, "%f", node->data.factor.value.constantValue);
             break;
 
         case FACTOR_IDENTIFIER:
-            fprintf(outputFile, "%s", node->factor.factoridentifierName);
+            fprintf(outputFile, "%s", node->data.factor.value.identifierName);
             break;
 
         case FACTOR_FUNCTION_CALL:
-            generateFunctionCallInExpression((*node).functionCall.expressions, outputFile);
+            generateFunctionCallInExpression(node, outputFile);
             break;
 
         case FACTOR_EXPRESSION:
             fprintf(outputFile, "(");
-            generateExpression(node->factor.expression, outputFile);
+            generateExpression(node->data.factor.value.expression, outputFile);
             fprintf(outputFile, ")");
             break;
 
         default:
-            fprintf(stderr, "! Unknown factor type in code generation.\n");
+            fprintf(stderr, "Unknown factor type in code generation.\n");
             break;
     }
 }
 
 // Generate code for a function call used within an expression
-void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
-    if (factor == NULL) {
+void generateFunctionCallInExpression(ASTNode* node, FILE* outputFile) {
+    if (node == NULL || node->type != NODE_FACTOR) {
         return;
     }
 
-    fprintf(outputFile, "%s(", factor->functionCall.functionCallIdentifierName);
+    char* functionName = node->data.factor.value.functionCall.function_name;
+    if (functionName == NULL) {
+        fprintf(stderr, "! Error: Function name is NULL in code generation.\n");
+        return;
+    }
 
-    ASTNode* arg = factor->functionCall.expressions;
+    fprintf(outputFile, "%s(", functionName);
+
+    ASTNode* arg = node->data.factor.value.functionCall.args;
     while (arg != NULL) {
         generateExpression(arg, outputFile);
         if (arg->next != NULL) {
@@ -1034,9 +1054,9 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
         return;
     }
 
-    fprintf(outputFile, "%s(", node->functionCall.functionCallIdentifierName);
+    fprintf(outputFile, "%s(", node->data.functionCallStatement.identifierName);
 
-    ASTNode* arg = node->functionCall.expressions;
+    ASTNode* arg = node->data.functionCallStatement.expressions;
     while (arg != NULL) {
         generateExpression(arg, outputFile);
         if (arg->next != NULL) {
@@ -1079,7 +1099,7 @@ void advanceCharacter(FILE *file, int *currentCharacter, int *currentLine, int *
     *currentCharacter = fgetc(file);    //gets the next character in the file
     (*currentPosition)++;               // if the next character is a new line then reset the position and increment the line
     if (*currentCharacter == '\n') {    //else just increment the position
-        //(*currentLine++); //commented out as is an unsued variable
+        //(*currentLine++);
         *currentPosition = 0;
     }
 }
@@ -1248,7 +1268,7 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
             }
         }
         if (currentCharacter == '#') {
-            //int startPosition = currentPosition;  // Save the position of the first # //commented out as is an unsued variable
+            //int startPosition = currentPosition;  // Save the position of the first #
 
             // Continue reading until the end of the line or EOF
             while (currentCharacter != '\n' && currentCharacter != EOF ) {
@@ -1283,14 +1303,13 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
     return tokens;
 }
 
+// dont need this, debug statements
 void printIndent(int indentLevel) {
     for (int i = 0; i < indentLevel; i++) {
         printf("    "); // 4 spaces per indent level
     }
     printf("|_");
 }
-
-// dont need this
 void printAST(ASTNode* node, int indentLevel) {
     if (node == NULL) {
         return;
@@ -1301,54 +1320,54 @@ void printAST(ASTNode* node, int indentLevel) {
     switch (node->type) {
         case NODE_PROGRAM:
             printf("Program:\n");
-            for (int i = 0; node->program.programItems[i] != NULL; i++) {
-                printAST(node->program.programItems[i], indentLevel + 1);
+            for (int i = 0; node->data.program.programItems[i] != NULL; i++) {
+                printAST(node->data.program.programItems[i], indentLevel + 1);
             }
             break;
 
         case NODE_PROGRAM_ITEMS:
-            if (node->programItems.programType == PROGRAM_FUNCTION) {
+            if (node->data.programItems.programType == PROGRAM_FUNCTION) {
                 printf("Function Declaration:\n");
-                printAST(node->programItems.function, indentLevel + 1);
-            } else if (node->programItems.programType == PROGRAM_STATEMENT) {
+                printAST(node->data.programItems.item.function, indentLevel + 1);
+            } else if (node->data.programItems.programType == PROGRAM_STATEMENT) {
                 printf("Statement:\n");
-                printAST(node->programItems.statement, indentLevel + 1);
+                printAST(node->data.programItems.item.statement, indentLevel + 1);
             }
             break;
 
         case NODE_FUNCTION:
-            printf("Function '%s' with parameters:\n", node->function.functionIdentifier);
+            printf("Function '%s' with parameters:\n", node->data.function.functionIdentifier);
             // Print parameters if any
-            if (node->function.parameterIdentifiers != NULL) {
-                for (int i = 0; node->function.parameterIdentifiers[i] != NULL; i++) {
+            if (node->data.function.parameterIdentifiers != NULL) {
+                for (int i = 0; node->data.function.parameterIdentifiers[i] != NULL; i++) {
                     printIndent(indentLevel + 1);
-                    printf("Parameter: %s\n", node->function.parameterIdentifiers[i]);
+                    printf("Parameter: %s\n", node->data.function.parameterIdentifiers[i]);
                 }
             }
             // Print function body
-            printAST(node->function.statements, indentLevel + 1);
+            printAST(node->data.function.statements, indentLevel + 1);
             break;
 
         case NODE_STATEMENT:
-            switch (node->statement.statementType) {
+            switch (node->data.statement.statementType) {
                 case STATEMENT_ASSIGNMENT:
                     printf("Assignment Statement:\n");
-                    printAST(node->statement.statement, indentLevel + 1);
+                    printAST(node->data.statement.statement, indentLevel + 1);
                     break;
 
                 case STATEMENT_PRINT:
                     printf("Print Statement:\n");
-                    printAST(node->statement.statement, indentLevel + 1);
+                    printAST(node->data.statement.statement, indentLevel + 1);
                     break;
 
                 case STATEMENT_RETURN:
                     printf("Return Statement:\n");
-                    printAST(node->statement.statement, indentLevel + 1);
+                    printAST(node->data.statement.statement, indentLevel + 1);
                     break;
 
                 case STATEMENT_FUNCTION_CALL:
                     printf("Function Call Statement:\n");
-                    printAST(node->statement.statement, indentLevel + 1);
+                    printAST(node->data.statement.statement, indentLevel + 1);
                     break;
 
                 default:
@@ -1358,58 +1377,58 @@ void printAST(ASTNode* node, int indentLevel) {
             break;
 
         case NODE_ASSIGNMENT:
-            printf("Assignment to '%s':\n", node->assignment.assignmentIdentifierName);
-            printAST(node->assignment.expression, indentLevel + 1);
+            printf("Assignment to '%s':\n", node->data.assignment.identifierName);
+            printAST(node->data.assignment.expression, indentLevel + 1);
             break;
 
         case NODE_PRINT:
             printf("Print Expression:\n");
-            printAST(node->printStatement.expression, indentLevel + 1);
+            printAST(node->data.printStatement.expression, indentLevel + 1);
             break;
 
         case NODE_RETURN:
             printf("Return Expression:\n");
-            printAST(node->returnStatement.expression, indentLevel + 1);
+            printAST(node->data.returnStatement.expression, indentLevel + 1);
             break;
 
         case NODE_EXPRESSION:
-            printf("Expression '%c':\n", node->expression.operator);
-            printAST(node->expression.term, indentLevel + 1);
-            if (node->expression.expression != NULL) {
-                printAST(node->expression.expression, indentLevel + 1);
+            printf("Expression '%c':\n", node->data.expressionNode.operator);
+            printAST(node->data.expressionNode.term, indentLevel + 1);
+            if (node->data.expressionNode.expression != NULL) {
+                printAST(node->data.expressionNode.expression, indentLevel + 1);
             }
             break;
 
         case NODE_TERM:
-            printf("Term '%c':\n", node->term.operator);
-            printAST(node->term.factor, indentLevel + 1);
-            if (node->term.term != NULL) {
-                printAST(node->term.term, indentLevel + 1);
+            printf("Term '%c':\n", node->data.termNode.operator);
+            printAST(node->data.termNode.factor, indentLevel + 1);
+            if (node->data.termNode.term != NULL) {
+                printAST(node->data.termNode.term, indentLevel + 1);
             }
             break;
 
         case NODE_FACTOR:
-            switch (node->factor.factorType) {
+            switch (node->data.factor.factorType) {
                 case FACTOR_CONSTANT:
-                    printf("Constant: %s\n", node->factor.constantValue);
+                    printf("Constant: %s\n", node->data.factor.value.constantValue);
                     break;
 
                 case FACTOR_IDENTIFIER:
-                    printf("Identifier: %s\n", node->factor.factoridentifierName);
+                    printf("Identifier: %s\n", node->data.factor.value.identifierName);
                     break;
 
                 case FACTOR_FUNCTION_CALL:
                     printf("Function Call:\n");
                     printIndent(indentLevel + 1);
-                    printf("Function Name: %s\n", node->factor.functionCall.function_name);
+                    printf("Function Name: %s\n", node->data.factor.value.functionCall.function_name);
                     printIndent(indentLevel + 1);
                     printf("Arguments:\n");
-                    printAST(node->factor.functionCall.args, indentLevel + 2);
+                    printAST(node->data.factor.value.functionCall.args, indentLevel + 2);
                     break;
 
                 case FACTOR_EXPRESSION:
                     printf("Nested Expression:\n");
-                    printAST(node->factor.expression, indentLevel + 1);
+                    printAST(node->data.factor.value.expression, indentLevel + 1);
                     break;
 
                 default:
@@ -1419,8 +1438,8 @@ void printAST(ASTNode* node, int indentLevel) {
             break;
 
         case NODE_FUNCTION_CALL:
-            printf("Function Call '%s' with arguments:\n", node->functionCall.functionCallIdentifierName);
-            printAST(node->functionCall.expressions, indentLevel + 1);
+            printf("Function Call '%s' with arguments:\n", node->data.functionCallStatement.identifierName);
+            printAST(node->data.functionCallStatement.expressions, indentLevel + 1);
             break;
 
         default:
@@ -1465,45 +1484,77 @@ int main(int argc, char *argv[]){
     fclose(file);
 
     for (int i = 0; ; i++) {
-    printf("Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
-           tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
-           tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
-           tokens[i].type == TOKEN_FUNCTION ? "FUNCTION" :
-           tokens[i].type == TOKEN_PRINT ? "PRINT" :
-           tokens[i].type == TOKEN_RETURN ? "RETURN" :
-           tokens[i].type == TOKEN_PLUS ? "PLUS" :
-           tokens[i].type == TOKEN_MINUS ? "MINUS" :
-           tokens[i].type == TOKEN_MULT ? "MULTIPLY" :
-           tokens[i].type == TOKEN_DIV ? "DIVIDE" :
-           tokens[i].type == TOKEN_ASSIGN ? "ASSIGNMENT OPERATOR" :
-           tokens[i].type == TOKEN_LPAREN ? "LEFT PARENTHESIS" :
-           tokens[i].type == TOKEN_RPAREN ? "RIGHT PARENTHESIS" :
-           tokens[i].type == TOKEN_COMMA ? "COMMA" :
-           tokens[i].type == TOKEN_TAB ? "TAB" :
-           tokens[i].type == TOKEN_COMMENT ? "COMMENT" :
-           tokens[i].type == TOKEN_EOF ? "END OF FILE" :
-           tokens[i].type == TOKEN_UNKNOWN ? "UNKNOWN" :
-           "UNKNOWN",
-           tokens[i].lexeme, tokens[i].line, tokens[i].position);
+        printf("Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
+            tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
+            tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
+            tokens[i].type == TOKEN_FUNCTION ? "FUNCTION" :
+            tokens[i].type == TOKEN_PRINT ? "PRINT" :
+            tokens[i].type == TOKEN_RETURN ? "RETURN" :
+            tokens[i].type == TOKEN_PLUS ? "PLUS" :
+            tokens[i].type == TOKEN_MINUS ? "MINUS" :
+            tokens[i].type == TOKEN_MULT ? "MULTIPLY" :
+            tokens[i].type == TOKEN_DIV ? "DIVIDE" :
+            tokens[i].type == TOKEN_ASSIGN ? "ASSIGNMENT OPERATOR" :
+            tokens[i].type == TOKEN_LPAREN ? "LEFT PARENTHESIS" :
+            tokens[i].type == TOKEN_RPAREN ? "RIGHT PARENTHESIS" :
+            tokens[i].type == TOKEN_COMMA ? "COMMA" :
+            tokens[i].type == TOKEN_TAB ? "TAB" :
+            tokens[i].type == TOKEN_COMMENT ? "COMMENT" :
+            tokens[i].type == TOKEN_EOF ? "END OF FILE" :
+            tokens[i].type == TOKEN_UNKNOWN ? "UNKNOWN" :
+            "UNKNOWN",
+            tokens[i].lexeme, tokens[i].line, tokens[i].position);
 
-    if (tokens[i].type == TOKEN_EOF) {
-        break;
+        if (tokens[i].type == TOKEN_EOF) {
+            break;
+        }
     }
-}
 
     ASTNode* AST = constructAST(tokens);
-
     printAST(AST, 0);
     printSymbolList(symbolList, 10);
-
-
     generateCode(AST, "output.c");
+  /*    
+    //complile the output.c file into output
+    int compileResult = system("cc -std=c11 -Wall -Werror -o output output.c");
+    if (compileResult != 0){
+        fprintf(stderr, "! Output failed to compile, failed with error code %d\n", compileResult);
+        
+        
+        int removeResult = remove("output.c");
+        if (removeResult != 0){
+            fprintf(stderr, "! System not able to delete 'output.c' file , failed with error code %d\n", removeResult);
+            return 1;
+        } 
+        
+        return 1;
+    } 
 
+    //run the output file 
+    int runResult = system("./output");
+    if (runResult != 0){
+        fprintf(stderr, "! Output failed to run, failed with error code %d\n", runResult);
+        return 1;
+    } 
 
-    //still need to run the code with system calls
+    //delete the output.c file
+    int removeResult = remove("output.c");
+    if (removeResult != 0){
+        fprintf(stderr, "! System not able to delete 'output.c' file , failed with error code %d\n", removeResult);
+        return 1;
+    } 
 
+    //delete the compiled output file
+  
+    int removeCompiledResult = remove("output");
+    if (removeCompiledResult != 0){
+        fprintf(stderr, "! System not able to delete compiled 'output' file , failed with error code %d\n", removeCompiledResult);
+        return 1;
+    } 
+    */
 
 
     return EXIT_SUCCESS;
 }
+
 

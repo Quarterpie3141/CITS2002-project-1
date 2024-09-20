@@ -179,6 +179,154 @@ typedef struct Symbol {
 } Symbol;
 
 
+
+
+
+void printNode(ASTNode* node) {
+    if (node == NULL) {
+        fprintf(stderr, "Node is NULL\n");
+        return;
+    }
+
+    switch (node->type) {
+        case NODE_PROGRAM:
+            fprintf(stderr, "Node Type: PROGRAM\n");
+            if (node->program.programItems != NULL) {
+                fprintf(stderr, "Program contains an array of program items.\n");
+            } else {
+                fprintf(stderr, "Program contains no items.\n");
+            }
+            break;
+
+        case NODE_PROGRAM_ITEMS:
+            fprintf(stderr, "Node Type: PROGRAM ITEMS\n");
+            fprintf(stderr, "Program item type: %d\n", node->programItems.programType);
+            if (node->programItems.programType == PROGRAM_STATEMENT) {
+                fprintf(stderr, "Program item is a statement.\n");
+            } else if (node->programItems.programType == PROGRAM_FUNCTION) {
+                fprintf(stderr, "Program item is a function.\n");
+            }
+            break;
+
+        case NODE_FUNCTION:
+            fprintf(stderr, "Node Type: FUNCTION\n");
+            fprintf(stderr, "Function name: %s\n", node->function.functionIdentifier);
+            if (node->function.parameterIdentifiers != NULL) {
+                fprintf(stderr, "Function has parameters.\n");
+            } else {
+                fprintf(stderr, "Function has no parameters.\n");
+            }
+            if (node->function.statements != NULL) {
+                fprintf(stderr, "Function has a statement body.\n");
+            } else {
+                fprintf(stderr, "Function has no statements.\n");
+            }
+            break;
+
+        case NODE_STATEMENT:
+            fprintf(stderr, "Node Type: STATEMENT\n");
+            fprintf(stderr, "Statement type: %d\n", node->statement.statementType);
+            if (node->statement.statement != NULL) {
+                fprintf(stderr, "Statement exists.\n");
+            } else {
+                fprintf(stderr, "Statement is empty.\n");
+            }
+            break;
+
+        case NODE_ASSIGNMENT:
+            fprintf(stderr, "Node Type: ASSIGNMENT\n");
+            fprintf(stderr, "Variable: %s\n", node->assignment.identifierName);
+            if (node->assignment.expression != NULL) {
+                fprintf(stderr, "Assignment has an expression.\n");
+            } else {
+                fprintf(stderr, "Assignment has no expression.\n");
+            }
+            break;
+
+        case NODE_PRINT:
+            fprintf(stderr, "Node Type: PRINT STATEMENT\n");
+            if (node->printStatement.expression != NULL) {
+                fprintf(stderr, "Print statement has an expression.\n");
+            } else {
+                fprintf(stderr, "Print statement has no expression.\n");
+            }
+            break;
+
+        case NODE_RETURN:
+            fprintf(stderr, "Node Type: RETURN STATEMENT\n");
+            if (node->returnStatement.expression != NULL) {
+                fprintf(stderr, "Return statement has an expression.\n");
+            } else {
+                fprintf(stderr, "Return statement has no expression.\n");
+            }
+            break;
+
+        case NODE_EXPRESSION:
+            fprintf(stderr, "Node Type: EXPRESSION\n");
+            if (node->expression.term != NULL) {
+                fprintf(stderr, "Expression has a term.\n");
+            } else {
+                fprintf(stderr, "Expression has no term.\n");
+            }
+            if (node->expression.operator != 0) {
+                fprintf(stderr, "Operator: %c\n", node->expression.operator);
+            }
+            if (node->expression.expression != NULL) {
+                fprintf(stderr, "Expression has a sub-expression.\n");
+            }
+            break;
+
+        case NODE_TERM:
+            fprintf(stderr, "Node Type: TERM\n");
+            if (node->term.factor != NULL) {
+                fprintf(stderr, "Term has a factor.\n");
+            }
+            if (node->term.operator != 0) {
+                fprintf(stderr, "Operator: %c\n", node->term.operator);
+            }
+            if (node->term.term != NULL) {
+                fprintf(stderr, "Term has a sub-term.\n");
+            }
+            break;
+
+        case NODE_FACTOR:
+            fprintf(stderr, "Node Type: FACTOR\n");
+            fprintf(stderr, "Factor type: %d\n", node->factor.factorType);
+            switch (node->factor.factorType) {
+                case FACTOR_CONSTANT:
+                    fprintf(stderr, "Constant value: %s\n", node->factor.constantValue);
+                    break;
+                case FACTOR_IDENTIFIER:
+                    fprintf(stderr, "Identifier: %s\n", node->factor.identifierName);
+                    break;
+                case FACTOR_FUNCTION_CALL:
+                    fprintf(stderr, "Function call: %s\n", node->factor.functionCall.function_name);
+                    break;
+                case FACTOR_EXPRESSION:
+                    fprintf(stderr, "Factor is an expression.\n");
+                    break;
+            }
+            break;
+
+        case NODE_FUNCTION_CALL:
+            fprintf(stderr, "Node Type: FUNCTION CALL\n");
+            fprintf(stderr, "Function name: %s\n", node->functionCall.identifierName);
+            if (node->functionCall.expressions != NULL) {
+                fprintf(stderr, "Function call has arguments.\n");
+            } else {
+                fprintf(stderr, "Function call has no arguments.\n");
+            }
+            break;
+
+        default:
+            fprintf(stderr, "Unknown node type!\n");
+            break;
+    }
+}
+
+
+
+
 // end of AST types
 
 // the string copy function was not working properly
@@ -424,6 +572,8 @@ ASTNode* parseStatement(Token* tokenList, int* currentToken) {
             // Assignment
             statementNode->statement.statementType = STATEMENT_ASSIGNMENT;
             statementNode->statement.statement = parseAssignment(tokenList, currentToken);
+            fprintf(stderr, "Entered assign with currentToken: %d\n", *currentToken);
+            
         } else {
             // Function call
             statementNode->statement.statementType = STATEMENT_FUNCTION_CALL;
@@ -479,7 +629,7 @@ ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
 
 // parses a print
 ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
-    // allocate mem
+    // allocate memory for the print node
     ASTNode* printNode = malloc(sizeof(ASTNode));
     if (printNode == NULL) {
         fprintf(stderr, "! Memory allocation failed\n");
@@ -505,8 +655,7 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
         }
         (*currentToken)++; // skip the ')'
     } else {
-        // no '(', parse expression directly
-        fprintf(stderr, "! Warning no '()' in print statement is not reccomended\n");
+        // parse the expression directly without parentheses
         printNode->printStatement.expression = parseExpression(tokenList, currentToken);
     }
 
@@ -534,12 +683,12 @@ ASTNode* parseReturnStatement(Token* tokenList, int* currentToken) {
 
 //a function call can be identified since it is a just a identifier with a list of parameters()
 ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
+    fprintf(stderr, "Entered parseFunctionCall with currentToken: %d\n", *currentToken);
     ASTNode* functionCallNode = malloc(sizeof(ASTNode));
     if (functionCallNode == NULL) {
         fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
-
     functionCallNode->type = NODE_FUNCTION_CALL;
 
     // expect identifier
@@ -732,46 +881,51 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
 }
 
 ASTNode* constructAST(Token* tokenList) {
-    int currentToken = 0;
-    int capacity = INITAL_ROOT_NODE_CAPACITY;
-    int amountOfProgramItems = 0;
+    fprintf(stderr, "@ Starting to construct AST");
+    static int firstProgram = 0;
+    if(firstProgram == 0){
+        int currentToken = 0;
+        firstProgram = 1;
+        int capacity = INITAL_ROOT_NODE_CAPACITY;
+        int amountOfProgramItems = 0;
 
-    // Allocate space for the root node
-    ASTNode* ast = malloc(sizeof(ASTNode));
+        // Allocate space for the root node
+        ASTNode* ast = malloc(sizeof(ASTNode));
 
-    if (ast == NULL) {
-        fprintf(stderr, "! Failed to allocate memory for root node\n");
-        exit(EXIT_FAILURE);
-    }
-
-    ast->type = NODE_PROGRAM;
-    ast->next = NULL;
-
-    ast->program.programItems = malloc(capacity * sizeof(ASTNode*)); // Initial allocation for program items
-    if (ast->program.programItems == NULL) {
-        fprintf(stderr, "! Failed to allocate memory for program items\n");
-        exit(EXIT_FAILURE);
-    }
-
-    while (tokenList[currentToken].type != TOKEN_EOF) {
-        // Reallocate memory for more program items if needed
-        if (amountOfProgramItems >= capacity) {
-            capacity *= 2;
-            ast->program.programItems = realloc(ast->program.programItems, capacity * sizeof(ASTNode*));
-            if (ast->program.programItems == NULL) {
-                fprintf(stderr, "! Failed to reallocate memory for program items\n");
-                exit(EXIT_FAILURE);
-            }
+        if (ast == NULL) {
+            fprintf(stderr, "! Failed to allocate memory for root node\n");
+            exit(EXIT_FAILURE);
         }
 
-        // Parse the next program item and add it to the array of nodes
-        ast->program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
+        ast->type = NODE_PROGRAM;
+        ast->next = NULL;
+
+        ast->program.programItems = malloc(capacity * sizeof(ASTNode*)); // Initial allocation for program items
+        if (ast->program.programItems == NULL) {
+            fprintf(stderr, "! Failed to allocate memory for program items\n");
+            exit(EXIT_FAILURE);
+        }
+
+        while (tokenList[currentToken].type != TOKEN_EOF) {
+            // Reallocate memory for more program items if needed
+            if (amountOfProgramItems >= capacity) {
+                capacity *= 2;
+                ast->program.programItems = realloc(ast->program.programItems, capacity * sizeof(ASTNode*));
+                if (ast->program.programItems == NULL) {
+                    fprintf(stderr, "! Failed to reallocate memory for program items\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            // Parse the next program item and add it to the array of nodes
+            ast->program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
     }
 
-    // Null-terminate the program items array
-    ast->program.programItems[amountOfProgramItems] = NULL;
+        // Null-terminate the program items array
+        ast->program.programItems[amountOfProgramItems] = NULL;
 
-    return ast;
+        return ast;
+    }
 }
 
 // end ast parsing functions
@@ -1015,7 +1169,7 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
             break;
 
         case FACTOR_FUNCTION_CALL:
-            generateFunctionCallInExpression((*node).functionCall.expressions, outputFile);
+            generateFunctionCallInExpression(node, outputFile);
             break;
 
         case FACTOR_EXPRESSION:
@@ -1032,14 +1186,12 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
 
 // Generate code for a function call used within an expression
 void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
-    fprintf(stderr, "IDK WHY THIS ISNT WORKING HERE\n");
     if (factor == NULL) {
         return;
     }
-
-    fprintf(outputFile, "%s(", factor->functionCall.identifierName);
-    fprintf(stderr, "%s(", factor->functionCall.identifierName);
-    ASTNode* arg = factor->functionCall.expressions;
+    fprintf(stderr, "%s(", factor->factor.functionCall.function_name);
+    fprintf(outputFile, "%s(", factor->factor.functionCall.function_name);
+    ASTNode* arg = factor->factor.functionCall.args;
     while (arg != NULL) {
         generateExpression(arg, outputFile);
         if (arg->next != NULL) {
@@ -1057,7 +1209,7 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
         return;
     }
 
-    fprintf(outputFile, "%s(", node->functionCall.identifierName);
+    printNode(node);
 
     ASTNode* arg = node->functionCall.expressions;
     while (arg != NULL) {
@@ -1306,14 +1458,13 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
     return tokens;
 }
 
+// dont need this, debug statements
 void printIndent(int indentLevel) {
     for (int i = 0; i < indentLevel; i++) {
         printf("    "); // 4 spaces per indent level
     }
     printf("|_");
 }
-
-// dont need this
 void printAST(ASTNode* node, int indentLevel) {
     if (node == NULL) {
         return;
@@ -1515,13 +1666,10 @@ int main(int argc, char *argv[]){
     }
 
     ASTNode* AST = constructAST(tokens);
-
     printAST(AST, 0);
     printSymbolList(symbolList, 10);
-
-
     generateCode(AST, "output.c");
-
+  /*    
     //complile the output.c file into output
     int compileResult = system("cc -std=c11 -Wall -Werror -o output output.c");
     if (compileResult != 0){
@@ -1552,11 +1700,13 @@ int main(int argc, char *argv[]){
     } 
 
     //delete the compiled output file
+  
     int removeCompiledResult = remove("output");
     if (removeCompiledResult != 0){
         fprintf(stderr, "! System not able to delete compiled 'output' file , failed with error code %d\n", removeCompiledResult);
         return 1;
     } 
+    */
 
 
     return EXIT_SUCCESS;
