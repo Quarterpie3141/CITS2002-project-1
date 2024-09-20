@@ -62,19 +62,19 @@ typedef enum { // types of ast nodes(the structs for each type are in the same o
     NODE_FUNCTION_CALL
 } ASTNodeType;
 
-typedef enum {
+typedef enum { // types for a factor node 
         FACTOR_CONSTANT,
         FACTOR_IDENTIFIER,
         FACTOR_FUNCTION_CALL,
         FACTOR_EXPRESSION
 } FactorType;
 
-typedef enum {
+typedef enum {  // types for a program item nods
         PROGRAM_STATEMENT,
         PROGRAM_FUNCTION
 } ProgramItemType;
 
-typedef enum {
+typedef enum { // types for a statement node
         STATEMENT_ASSIGNMENT,
         STATEMENT_PRINT,
         STATEMENT_RETURN,
@@ -178,14 +178,7 @@ typedef struct Symbol {
     SymbolType type;
 } Symbol;
 
-
-
-
-
-
-
 // end of AST types
-
 
 Symbol* symbolList[MAX_IDENTIFIERS];
 
@@ -241,7 +234,7 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
 
     functionNode->type = NODE_FUNCTION;
 
-    // Expect 'function' keyword
+    // expect 'function' keyword
     if (tokenList[*currentToken].type != TOKEN_FUNCTION) {
         fprintf(stderr, "! Expected 'function' keyword\n");
         syntaxErrorFlag = 1;
@@ -249,7 +242,7 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
     }
     (*currentToken)++;
 
-    // Expect function identifier
+    // expect function identifier
     if (tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
         fprintf(stderr, "! Expected function name\n");
         syntaxErrorFlag = 1;
@@ -260,27 +253,27 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
     addSymbol(tokenList[*currentToken].lexeme, SYMBOL_FUNCTION);
     (*currentToken)++;
 
-    // Check for '('
+    // check for the '('
     int hasParentheses = 0;
     if (tokenList[*currentToken].type == TOKEN_LPAREN) {
         hasParentheses = 1;
-        (*currentToken)++; // Skip '('
+        (*currentToken)++; // skip the '('
     }
 
-    // Parse parameters
+    // parse parameters
     functionNode->function.parameterIdentifiers = parseParameterList(tokenList, currentToken, hasParentheses);
 
-    // If there was '(', expect ')'
+    // if there was '(', expect a ')'
     if (hasParentheses == 1) {
         if (tokenList[*currentToken].type != TOKEN_RPAREN) {
             fprintf(stderr, "! Expected ')' after function parameters\n");
             syntaxErrorFlag = 1;
             return NULL;
         }
-        (*currentToken)++; // Skip ')'
+        (*currentToken)++; // skip ')'
     }
 
-    // Parse function body (statements)
+    // parse function body (statements)
     functionNode->function.statements = parseStatementList(tokenList, currentToken);
 
     return functionNode;
@@ -299,12 +292,12 @@ ASTNode* parseProgramItems(Token* tokenList, int* currentToken) {
     Token token = tokenList[*currentToken];
 
     if (token.type == TOKEN_FUNCTION) {
-        // Construct a function node
+        // construct a function node
         programItem->type = NODE_PROGRAM_ITEMS;
         programItem->programItems.programType = PROGRAM_FUNCTION;
         programItem->programItems.function = parseFunction(tokenList, currentToken);
     } else {
-        // Construct a statement node
+        // construct a statement node
         programItem->type = NODE_PROGRAM_ITEMS;
         programItem->programItems.programType = PROGRAM_STATEMENT;
         programItem->programItems.statement = parseStatement(tokenList, currentToken);
@@ -318,7 +311,7 @@ char** parseParameterList(Token* tokenList, int* currentToken, int hasParenthese
     char** parameters = malloc(MAX_IDENTIFIERS * sizeof(char*));
     int paramCount = 0;
 
-    // If no parentheses, and the next token is not an identifier, there are no parameters
+    // if no parentheses, and the next token is not an identifier, there are no parameters
     if (hasParentheses == 0 && tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
         parameters[paramCount] = NULL; // Null-terminate the list
         return parameters;
@@ -329,12 +322,12 @@ char** parseParameterList(Token* tokenList, int* currentToken, int hasParenthese
         addSymbol(tokenList[*currentToken].lexeme, SYMBOL_VARIABLE);
         (*currentToken)++;
 
-        // If parameters are within parentheses, check for comma
+        // if parameters are within parentheses, check for comma
         if (hasParentheses == 1) {
             if (tokenList[*currentToken].type == TOKEN_COMMA) {
                 (*currentToken)++; // Skip ','
             } else {
-                // No comma, break if next token is ')'
+                // no comma, break if next token is ')'
                 if (tokenList[*currentToken].type == TOKEN_RPAREN) {
                     break;
                 } else {
@@ -344,14 +337,14 @@ char** parseParameterList(Token* tokenList, int* currentToken, int hasParenthese
                 }
             }
         } else {
-            // If no parentheses, stop parsing if next token is not an identifier
+            // if no parentheses, stop parsing if next token is not an identifier
             if (tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
                 break;
             }
         }
     }
 
-    parameters[paramCount] = NULL; // Null-terminate the list
+    parameters[paramCount] = NULL; // null-terminate the list
     return parameters;
 }
 
@@ -363,22 +356,22 @@ ASTNode* parseStatementList(Token* tokenList, int* currentToken) {
     ASTNode* head = NULL;
     ASTNode* tail = NULL;
 
-    // Assume that the function body starts with a TAB token
+    // assume that the function body starts with a TAB token
     if (tokenList[*currentToken].type != TOKEN_TAB) {
         fprintf(stderr, "! Expected indentation in function body\n");
         syntaxErrorFlag = 1;
         return NULL;
     }
 
-    // Consume the initial TAB token
+    // consume the initial TAB token
     (*currentToken)++;
 
     while (tokenList[*currentToken].type != TOKEN_EOF &&
            tokenList[*currentToken].type != TOKEN_FUNCTION &&
-           tokenList[*currentToken].type != TOKEN_TAB) { // Assuming dedent is represented by lack of TAB
+           tokenList[*currentToken].type != TOKEN_TAB) { // assuming dedent is represented by lack of TAB
         ASTNode* statement = parseStatement(tokenList, currentToken);
         if (statement == NULL) {
-            // Handle parsing error
+            // handle parsing error
             return NULL;
         }
 
@@ -390,11 +383,11 @@ ASTNode* parseStatementList(Token* tokenList, int* currentToken) {
             tail = statement;
         }
 
-        // Check for TAB token at the beginning of the next line
+        // check for TAB token at the beginning of the next line
         if (tokenList[*currentToken].type == TOKEN_TAB) {
             (*currentToken)++; // Consume TAB
         } else {
-            break; // End of indented block
+            break; // end of indented block
         }
     }
 
@@ -415,24 +408,24 @@ ASTNode* parseStatement(Token* tokenList, int* currentToken) {
     statementNode->type = NODE_STATEMENT;
 
     if (token.type == TOKEN_IDENTIFIER) {
-        // Could be an assignment or function call
+        // could be an assignment or function call
         if (tokenList[*currentToken + 1].type == TOKEN_ASSIGN) {
-            // Assignment
+            // assignment
             statementNode->statement.statementType = STATEMENT_ASSIGNMENT;
             statementNode->statement.statement = parseAssignment(tokenList, currentToken);
             fprintf(stderr, "Entered assign with currentToken: %d\n", *currentToken);
             
         } else {
-            // Function call
+            // function call
             statementNode->statement.statementType = STATEMENT_FUNCTION_CALL;
             statementNode->statement.statement = parseFunctionCall(tokenList, currentToken);
         }
     } else if (token.type == TOKEN_PRINT) {
-        // Print statement
+        // print statement
         statementNode->statement.statementType = STATEMENT_PRINT;
         statementNode->statement.statement = parsePrintStatement(tokenList, currentToken);
     } else if (token.type == TOKEN_RETURN) {
-        // Return statement
+        // return statement
         statementNode->statement.statementType = STATEMENT_RETURN;
         statementNode->statement.statement = parseReturnStatement(tokenList, currentToken);
     } else {
@@ -458,13 +451,13 @@ ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
 
     
 
-    // Expect an identifier and add it to the list of known symbols
+    // expect an identifier and add it to the list of known symbols
     assignmentNode->assignment.identifierName = tokenList[*currentToken].lexeme;
     
     addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_VARIABLE);
     (*currentToken)++;
 
-    // Expect a '<-'
+    // expect a '<-'
     if (tokenList[*currentToken].type != TOKEN_ASSIGN) {
         fprintf(stderr, "! Expected '<-' in assignment\n");
         syntaxErrorFlag = 1;
@@ -472,7 +465,7 @@ ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
     }
     (*currentToken)++;
 
-    // Parse expression
+    // parse expression
     assignmentNode->assignment.expression = parseExpression(tokenList, currentToken);
 
     return assignmentNode;
@@ -493,7 +486,7 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
 
     // check if the next token is '('
     if (tokenList[*currentToken].type == TOKEN_LPAREN) {
-        (*currentToken)++; // Skip '('
+        (*currentToken)++; // skip '('
 
         // parse the expression
         printNode->printStatement.expression = parseExpression(tokenList, currentToken);
@@ -513,7 +506,7 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
     return printNode;
 }
 
-//parses a return, assumes that return can only return a single value
+//parses a return, assumes that return can only return a single value wil break if it returns more than 1
 ASTNode* parseReturnStatement(Token* tokenList, int* currentToken) {
     ASTNode* returnNode = malloc(sizeof(ASTNode));
     if (returnNode == NULL) {
@@ -532,7 +525,7 @@ ASTNode* parseReturnStatement(Token* tokenList, int* currentToken) {
     return returnNode;
 }
 
-//a function call can be identified since it is a just a identifier with a list of parameters()
+//a function call can be identified since it is a just a identifier with a list of parameters() so we just chack for a parentheses
 ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
     fprintf(stderr, "Entered parseFunctionCall with currentToken: %d\n", *currentToken);
     ASTNode* functionCallNode = malloc(sizeof(ASTNode));
@@ -569,7 +562,7 @@ ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
 }
 
 //for functions that have multiple arguments i.e. `sum(x, 24+y, z*x)`
-//this function will parse all of the arguments as another linked list
+//this function will parse all of the arguments as another linked list, so we can navigate through them when generating the code
 ASTNode* parseArgumentList(Token* tokenList, int* currentToken) {
     ASTNode* head = NULL;
     ASTNode* tail = NULL;
@@ -601,13 +594,14 @@ ASTNode* parseArgumentList(Token* tokenList, int* currentToken) {
     return head;
 }
 
+// this function jsut parses the left and right hand side of an expression
 ASTNode* parseExpression(Token* tokenList, int* currentToken) {
-    // Parse a term
+    // parse a term
     ASTNode* left = parseTerm(tokenList, currentToken);
 
     Token token = tokenList[*currentToken];
 
-    // Handle '+' and '-' operators
+    // handle '+' and '-' ops
     while (token.type == TOKEN_PLUS || token.type == TOKEN_MINUS) {
         ASTNode* exprNode = malloc(sizeof(ASTNode));
         if (exprNode == NULL) {
@@ -616,11 +610,11 @@ ASTNode* parseExpression(Token* tokenList, int* currentToken) {
         }
 
         exprNode->type = NODE_EXPRESSION;
-        exprNode->expression.term = left;
+        exprNode->expression.term = left; // left hand side of the expression
         exprNode->expression.operator = token.lexeme[0];
         (*currentToken)++;
 
-        // Parse the right side of the expression
+        // parse the right side of the expression
         exprNode->expression.expression = parseTerm(tokenList, currentToken);
 
         left = exprNode;
@@ -630,8 +624,11 @@ ASTNode* parseExpression(Token* tokenList, int* currentToken) {
     return left;
 }
 
+//parses the left and right and side of a term, a term is what is either on the left or right hand
+//side of an expression
 ASTNode* parseTerm(Token* tokenList, int* currentToken) {
-    // Parse a factor
+    // parse a factor, similar to a expression, a factor is whats on the left or right hand side 
+    // of a term
     ASTNode* left = parseFactor(tokenList, currentToken);
 
     Token token = tokenList[*currentToken];
@@ -659,8 +656,11 @@ ASTNode* parseTerm(Token* tokenList, int* currentToken) {
     return left;
 }
 
+ // parse a factor, similar to a expression, a factor is whats on the left or right hand side 
+ // of a term
 ASTNode* parseFactor(Token* tokenList, int* currentToken) {
     Token token = tokenList[*currentToken];
+    //assign mem
     ASTNode* factorNode = malloc(sizeof(ASTNode));
     if (factorNode == NULL) {
         fprintf(stderr, "! Memory allocation failed\n");
@@ -670,12 +670,12 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
     factorNode->type = NODE_FACTOR;
 
     if (token.type == TOKEN_REAL) {
-        // Constant value
+        // constant value
         factorNode->factor.factorType = FACTOR_CONSTANT;
         factorNode->factor.constantValue = token.lexeme;
         (*currentToken)++;
     } else if (token.type == TOKEN_IDENTIFIER) {
-        // the council(symbol table) will decide your fate
+        // the council(symbol table) will decide its fate
         Symbol* symbol = findSymbol(token.lexeme);
         if (symbol == NULL) {
             fprintf(stderr, "! Error: Undefined identifier '%s'\n", token.lexeme);
@@ -684,15 +684,15 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
         }
 
         if (symbol->type == SYMBOL_FUNCTION && tokenList[*currentToken + 1].type == TOKEN_LPAREN) {
-            // Function call
+            // function call
             factorNode->factor.factorType = FACTOR_FUNCTION_CALL;
             factorNode->factor.functionCall.function_name = token.lexeme;
-            (*currentToken) += 2; // Skip identifier and '('
+            (*currentToken) += 2; // skip identifier and '('
 
-            // Parse arguments
+            // parse arguments
             factorNode->factor.functionCall.args = parseArgumentList(tokenList, currentToken);
 
-            // Expect ')'
+            // expect ')'
             if (tokenList[*currentToken].type != TOKEN_RPAREN) {
                 fprintf(stderr, "! Expected ')' after function arguments\n");
                 syntaxErrorFlag = 1;
@@ -700,7 +700,7 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
             }
             (*currentToken)++;
         } else if (symbol->type == SYMBOL_VARIABLE) {
-            // Variable
+            // variable
             factorNode->factor.factorType = FACTOR_IDENTIFIER;
             factorNode->factor.identifierName = token.lexeme; //dup
             (*currentToken)++;
@@ -710,12 +710,12 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
             return NULL;
         }
     } else if (token.type == TOKEN_LPAREN) {
-        // Parenthesized expression
-        (*currentToken)++; // Skip '('
+        // parenthesized expression
+        (*currentToken)++; // skip '('
         factorNode->factor.factorType = FACTOR_EXPRESSION;
         factorNode->factor.expression = parseExpression(tokenList, currentToken);
 
-        // Expect ')'
+        // expect ')'
         if (tokenList[*currentToken].type != TOKEN_RPAREN) {
             fprintf(stderr, "! Expected ')' after expression\n");
             syntaxErrorFlag = 1;
@@ -731,6 +731,11 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
     return factorNode;
 }
 
+// this function initialises the AST, it will make the root node(NODE_PROGRAM) that all other nodes will
+// eventually link back to. since there can be multiple program items in the main body of the program
+// it also stores a linked list of program items, since its the root node we also dynamically allocate
+// memory for the whole tree here
+
 ASTNode* constructAST(Token* tokenList) {
     fprintf(stderr, "@ Starting to construct AST");
     static int firstProgram = 0;
@@ -740,25 +745,25 @@ ASTNode* constructAST(Token* tokenList) {
         int capacity = INITAL_ROOT_NODE_CAPACITY;
         int amountOfProgramItems = 0;
 
-        // Allocate space for the root node
+        // allocate space for the root node
         ASTNode* ast = malloc(sizeof(ASTNode));
 
         if (ast == NULL) {
             fprintf(stderr, "! Failed to allocate memory for root node\n");
             exit(EXIT_FAILURE);
         }
-
+        //root node
         ast->type = NODE_PROGRAM;
         ast->next = NULL;
 
-        ast->program.programItems = malloc(capacity * sizeof(ASTNode*)); // Initial allocation for program items
+        ast->program.programItems = malloc(capacity * sizeof(ASTNode*)); // anitial allocation for program items
         if (ast->program.programItems == NULL) {
             fprintf(stderr, "! Failed to allocate memory for program items\n");
             exit(EXIT_FAILURE);
         }
 
         while (tokenList[currentToken].type != TOKEN_EOF) {
-            // Reallocate memory for more program items if needed
+            // eeallocate memory for more program items when its needed
             if (amountOfProgramItems >= capacity) {
                 capacity *= 2;
                 ast->program.programItems = realloc(ast->program.programItems, capacity * sizeof(ASTNode*));
@@ -768,11 +773,11 @@ ASTNode* constructAST(Token* tokenList) {
                 }
             }
 
-            // Parse the next program item and add it to the array of nodes
+            // parse the next program item and add it to the array of nodes
             ast->program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
         }
 
-        // Null-terminate the program items array
+        // add null to the program items array
         ast->program.programItems[amountOfProgramItems] = NULL;
 
         return ast;
@@ -781,6 +786,9 @@ ASTNode* constructAST(Token* tokenList) {
 }
 
 // end ast parsing functions
+
+// start code generation funcions
+//these functions are similar to the parsing ones, just in reverse
 
 void generateCode(ASTNode* ast, const char* outputFilename);
 void generateProgram(ASTNode* node, FILE* outputFile);
@@ -797,12 +805,12 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile);
 void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile);
 void generateDeclarations(FILE* outputFile);
 
-int indentLevel = 0;
+int indentLevel = 0; // for indenting the c code for readability
 void increaseIndent() {
     indentLevel++;
 }
 
-void decreaseIndent() {
+void decreaseIndent() {//^
     if (indentLevel > 0) {
         indentLevel--;
     }
@@ -813,10 +821,8 @@ void emitIndentation(FILE* outputFile) {
         fprintf(outputFile, "    "); // 4 spaces per indent level
     }
 }
-//start code generation functions
 
-
-
+// this functions similarly to the CrateAST function where this is the entery point into the recursion
 void generateCode(ASTNode* ast, const char* outputFilename) {
     FILE* outputFile = fopen(outputFilename, "w");
     if (outputFile == NULL) {
@@ -824,26 +830,27 @@ void generateCode(ASTNode* ast, const char* outputFilename) {
         exit(EXIT_FAILURE);
     }
 
-    // Emit necessary headers
+    // add necessary headers
     fprintf(outputFile, "#include <stdio.h>\n\n");
+    // add all the variable declarations(need to change with scope)
     generateDeclarations(outputFile);
 
-    // Generate code for the AST
+    // generate code for the AST
     generateProgram(ast, outputFile);
 
-    // Optionally, add a main function if your language requires it
+    // start the main function
     fprintf(outputFile, "int main() {\n");
     increaseIndent();
 
-    // Generate code for top-level statements
-    // For simplicity, we'll assume that the program items are statements to be placed in main
+    // Generate code for top-level statements, i.e. loop over the linked list of program items in the tree and start a recursion
+    // for each one
     if (ast->type == NODE_PROGRAM) {
         for (int i = 0; ast->program.programItems[i] != NULL; i++) {
             ASTNode* programItem = ast->program.programItems[i];
             if (programItem->programItems.programType == PROGRAM_STATEMENT) {
                 generateStatement(programItem->programItems.statement, outputFile);
             } else if (programItem->programItems.programType == PROGRAM_FUNCTION) {
-                // Function definitions are already generated above
+                // function definitions are already generated above
             }
         }
     }
