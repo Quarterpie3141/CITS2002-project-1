@@ -862,18 +862,19 @@ void generateCode(ASTNode* ast, const char* outputFilename) {
     fclose(outputFile);
 }
 
-// Generate code for the entire program
+// generate code for the entire program this just acts liek a proxy for gen statements
 void generateProgram(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_PROGRAM) {
         return;
     }
 
-    // Generate code for each program item
+    // generate code for each program item
     for (int i = 0; node->program.programItems[i] != NULL; i++) {
         generateProgramItem(node->program.programItems[i], outputFile);
     }
 }
 
+// generates program items
 void generateProgramItem(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_PROGRAM_ITEMS) {
         return;
@@ -882,18 +883,20 @@ void generateProgramItem(ASTNode* node, FILE* outputFile) {
     if (node->programItems.programType == PROGRAM_FUNCTION) {
         generateFunction(node->programItems.function, outputFile);
     }
-    // Statements are handled in main for this example
+
 }
 
+// generates the functions, also has to parse a list of arguments, we assume
+// that each argument is a double
 void generateFunction(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_FUNCTION) {
         return;
     }
 
-    // Emit function signature
+    // add function identifier
     fprintf(outputFile, "double %s(", node->function.functionIdentifier);
 
-    // Emit parameters
+    // add parameters / parse list of arguments
     char** params = node->function.parameterIdentifiers;
     for (int i = 0; params && params[i] != NULL; i++) {
         fprintf(outputFile, "double %s", params[i]);
@@ -903,9 +906,9 @@ void generateFunction(ASTNode* node, FILE* outputFile) {
     }
     fprintf(outputFile, ") {\n");
 
-    increaseIndent();
+    increaseIndent(); // make it look nice
 
-    // Emit function body (statements)
+    // add  function body ( linked list of statements)
     ASTNode* statement = node->function.statements;
     while (statement != NULL) {
         generateStatement(statement, outputFile);
@@ -919,6 +922,9 @@ void generateFunction(ASTNode* node, FILE* outputFile) {
     
 }
 
+// generates a statement based on what type of statement it is. thi sfunction itself
+// dosent generate it, it just acts liek a revrse proxy and hands the node to the
+// respective functions
 void generateStatement(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_STATEMENT) {
         return;
@@ -950,24 +956,21 @@ void generateStatement(ASTNode* node, FILE* outputFile) {
     }
 }
 
-// Generate code for an assignment statement
+// generate code for an assignment statement
 void generateAssignment(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_ASSIGNMENT) {
         return;
     }
 
-    // For simplicity, declare the variable if first time, otherwise assign
-    // In a complete implementation, you would track variable declarations
+    // declare the variable if first time, otherwise assign
+    // TODO: keep track of identifiers
     fprintf(outputFile, "double %s = ", node->assignment.identifierName);
-
-    //fprintf(stderr,  "%s random letters \n", node->assignment.identifierName);
-    //printNode(node);
 
     generateExpression(node->assignment.expression, outputFile);
     fprintf(outputFile, ";\n");
 }
 
-// Generate code for a print statement
+// generate code for a print statement
 void generatePrintStatement(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_PRINT) {
         return;
@@ -978,7 +981,7 @@ void generatePrintStatement(ASTNode* node, FILE* outputFile) {
     fprintf(outputFile, ");\n");
 }
 
-// Generate code for a return statement
+// generate code for a return statement
 void generateReturnStatement(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_RETURN) {
         return;
@@ -989,7 +992,7 @@ void generateReturnStatement(ASTNode* node, FILE* outputFile) {
     fprintf(outputFile, ";\n");
 }
 
-// Generate code for an expression
+// generate code for an expression
 void generateExpression(ASTNode* node, FILE* outputFile) {
     if (node == NULL) {
         return;
@@ -1002,12 +1005,12 @@ void generateExpression(ASTNode* node, FILE* outputFile) {
     } else if (node->type == NODE_TERM) {
         generateTerm(node, outputFile);
     } else {
-        // Handle other cases
+        // handle other cases
         generateTerm(node, outputFile);
     }
 }
 
-// Generate code for a term
+// generate code for a term
 void generateTerm(ASTNode* node, FILE* outputFile) {
     if (node == NULL) {
         return;
@@ -1025,11 +1028,12 @@ void generateTerm(ASTNode* node, FILE* outputFile) {
     }
 }
 
-// Generate code for a factor
+// generate code for a factor same deal as the statments, acts liek a reverse proxy
 void generateFactor(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_FACTOR) {
         return;
     }
+
     switch (node->factor.factorType) {
         case FACTOR_CONSTANT:
             fprintf(outputFile, "%f", atof(node->factor.constantValue)); // convert the char to a float, kinda not needed
@@ -1055,12 +1059,13 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
     }
 }
 
-// Generate code for a function call used within an expression
+// generate code for a function call used within an expression
 void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
     if (factor == NULL) {
         return;
     }
     
+    // adds arguments to the function call
     fprintf(outputFile, "%s(", factor->factor.functionCall.function_name);
     ASTNode* arg = factor->factor.functionCall.args;
     while (arg != NULL) {
@@ -1074,7 +1079,7 @@ void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
     fprintf(outputFile, ")");
 }
 
-// Generate code for a function call statement
+// generate code for a function call statement
 void generateFunctionCall(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_FUNCTION_CALL) {
         return;
@@ -1082,7 +1087,7 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
 
 
     fprintf(outputFile, "%s (", node->functionCall.identifierName);
-
+    // same as the function call
     ASTNode* arg = node->functionCall.expressions;
     while (arg != NULL) {
         generateExpression(arg, outputFile);
@@ -1096,22 +1101,23 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
 }
 
 void generateDeclarations(FILE* outputFile) {
-    // Iterate over the symbol list and generate declarations
+    // iterate over the symbol list and generate declarations
     for (int i = 0; i < MAX_IDENTIFIERS; i++) {
         Symbol* symbol = symbolList[i];
         if (symbol == NULL) {
-            // Reached the end of the symbol list
+            // reached the end of the symbol list
             fprintf(outputFile, "\n");
             break;
         }
 
         if (symbol->type == SYMBOL_VARIABLE) {
-            // Declare the variable at the top of main
+            // declare the variable at the top of main
             fprintf(outputFile, "double %s;\n", symbol->name);
         } else if (symbol->type == SYMBOL_FUNCTION) {
         }
     }
 }
+
 //end code generation functions
 
 int validateFileExt(const char *fileName){
@@ -1347,10 +1353,10 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
     return tokens;
 }
 
-// dont need this, debug statements
+// don't need these for funtionality, they act as debug statements
 void printIndent(int indentLevel) {
     for (int i = 0; i < indentLevel; i++) {
-        fprintf(stdout,"    "); // 4 spaces per indent level
+        fprintf(stdout,"    ");
     }
     fprintf(stdout,"@ |_");
 }
@@ -1381,14 +1387,14 @@ void printAST(ASTNode* node, int indentLevel) {
 
         case NODE_FUNCTION:
             fprintf(stdout,"Function '%s' with parameters:\n", node->function.functionIdentifier);
-            // Print parameters if any
+            // print parameters or none
             if (node->function.parameterIdentifiers != NULL) {
                 for (int i = 0; node->function.parameterIdentifiers[i] != NULL; i++) {
                     printIndent(indentLevel + 1);
                     fprintf(stdout,"Parameter: %s\n", node->function.parameterIdentifiers[i]);
                 }
             }
-            // Print function body
+            // print function body
             printAST(node->function.statements, indentLevel + 1);
             break;
 
@@ -1491,7 +1497,7 @@ void printAST(ASTNode* node, int indentLevel) {
             break;
     }
 
-    // If the node has a next pointer (e.g., in a linked list), print it
+    // ff the node has a next pointer like in the linked list nodes, loop through them
     if (node->next != NULL) {
         printAST(node->next, indentLevel);
     }
@@ -1535,6 +1541,8 @@ int main(int argc, char *argv[]){
 
     fclose(file);
 
+    // this is a debug/ informational loop, it jsut prints all of the tokens in order
+    // this loop is not required for functionality
     for (int i = 0; ; i++) {
         fprintf(stdout,"@ Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
             tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
@@ -1563,8 +1571,11 @@ int main(int argc, char *argv[]){
     }
 
     ASTNode* AST = constructAST(tokens);
-    printAST(AST, 0);
+
+    printAST(AST, 0);// info/debug
+
     printSymbolList(symbolList, 10);
+
     generateCode(AST, "output.c");
    
    
@@ -1574,10 +1585,6 @@ int main(int argc, char *argv[]){
     int compileResult = system("cc -std=c11 -o output output.c");
     if (compileResult != 0){
         fprintf(stderr, "! Output failed to compile, failed with error code %d\n", compileResult);
-        
-        
-        
-        
         return 1;
     } 
 
@@ -1601,7 +1608,6 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "! System not able to delete compiled 'output' file , failed with error code %d\n", removeCompiledResult);
         return 1;
     } 
-
     return EXIT_SUCCESS;
 }
 
