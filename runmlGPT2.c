@@ -1,3 +1,8 @@
+//  CITS2002 Project 1 2024
+//  Student1:   23783481 Prashan Wijesinghe 
+//  Student2:   23180621 William Craig
+//  Platform:   Apple
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +13,7 @@
 #define INITIAL_ARRAY_SIZE 1024
 #define INITAL_ROOT_NODE_CAPACITY 2
 //todo - close fopen calls and free() malloc'd nodes
+
 int syntaxErrorFlag = 0;
 
 // these are the types declarations for the lexer and tokeniser
@@ -109,7 +115,7 @@ typedef struct ASTNode {
 
         // x <- 5, this node has an identifier(x) and an expression node(5)
         struct {
-            char* identifierName;   // (required)
+            char* assignmentIdentifierName;   // (required)
             struct ASTNode* expression; // (required)
         } assignment;
 
@@ -142,7 +148,7 @@ typedef struct ASTNode {
              FactorType factorType;            // what the factor is(constant, identifier, functional call, expression)
              union {
                 char* constantValue;             // for when the factor is a real constant
-                char* identifierName;          // For when the factor is a variable
+                char* factoridentifierName;          // For when the factor is a variable
                 struct {
                     char* function_name;        // for when the factor is a function call
                     struct ASTNode* args;       // list of expressions for the function
@@ -153,7 +159,7 @@ typedef struct ASTNode {
 
         //add(2,4), this node has an identifier and a list of expressions
         struct {
-            char* identifierName;
+            char* functionCallIdentifierName;
             struct ASTNode* expressions;
         } functionCall;
 
@@ -161,6 +167,7 @@ typedef struct ASTNode {
 
     };
 } ASTNode;
+
 typedef enum {
     SYMBOL_VARIABLE,
     SYMBOL_FUNCTION
@@ -186,7 +193,7 @@ char *duplicateString(const char *string) {
 
 Symbol* symbolList[MAX_IDENTIFIERS];
 
-// symbols are just already defined identifiers, they can be variables or function calls
+// symbols are just already declared identifiers, they can be variables or function calls
 void addSymbol(char* name, SymbolType type) {
     static int currentSymbol = 0; // keep track of the current number of symbols, TODO: warn the user when they use too many identifiers
     Symbol* symbol = malloc(sizeof(Symbol));
@@ -230,10 +237,9 @@ char** parseParameterList(Token* tokenList, int* currentToken);
 // if a 'function' token is found `parseFunction` will take care of
 // consuming all the tokens related to the function and checking syntax
 ASTNode* parseFunction(Token* tokenList, int* currentToken) {
-    //assign memory for the node
     ASTNode* functionNode = malloc(sizeof(ASTNode));
     if (functionNode == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -241,41 +247,32 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
 
     // Expect 'function' keyword
     if (tokenList[*currentToken].type != TOKEN_FUNCTION) {
-        fprintf(stderr, "Expected 'function' keyword\n");
+        fprintf(stderr, "! Expected 'function' keyword\n");
         syntaxErrorFlag = 1;
         return NULL;
     }
-
     (*currentToken)++;
 
-    // Expect thefunction identifier
+    // Expect function identifier
     if (tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
-        fprintf(stderr, "Expected function name\n");
+        fprintf(stderr, "! Expected function name\n");
         syntaxErrorFlag = 1;
         return NULL;
     }
 
     functionNode->function.functionIdentifier = duplicateString(tokenList[*currentToken].lexeme);
-    addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_FUNCTION);
-    (*currentToken)++;
-
-    // check for '(' and warn them if there isnt any
-    // for functions with a single parameter this still works, but will break for ones with more than 1
-    if (tokenList[*currentToken].type != TOKEN_LPAREN) {
-        fprintf(stderr, "Warning,'(' after function name is reccomended\n");
-    }
+    addSymbol(tokenList[*currentToken].lexeme, SYMBOL_FUNCTION);
     (*currentToken)++;
 
     // Parse parameters
     functionNode->function.parameterIdentifiers = parseParameterList(tokenList, currentToken);
 
-    // same thing as line 264
-    if (tokenList[*currentToken].type != TOKEN_RPAREN) {
-        fprintf(stderr, "Warning, ')' after function parameters is reccomended\n");
+    // Add parameters to symbol table
+    for (int i = 0; functionNode->function.parameterIdentifiers[i] != NULL; i++) {
+        addSymbol(functionNode->function.parameterIdentifiers[i], SYMBOL_VARIABLE);
     }
-    (*currentToken)++;
 
-    // Parse function body (statements) TODO: this shoudl be able to parse a list of functions
+    // Parse function body (statements)
     functionNode->function.statements = parseStatementList(tokenList, currentToken);
 
     return functionNode;
@@ -284,18 +281,23 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
 // this function is the first to start actually parsing items, each program item (line or gorup of lines) in the top
 // the top level of the program is either a statement or a funciton
 ASTNode* parseProgramItems(Token* tokenList, int* currentToken) {
+    // assign mem
     ASTNode* programItem = malloc(sizeof(ASTNode));
     if (programItem == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
     
-    programItem->type = NODE_PROGRAM_ITEMS;
-    
-    if (tokenList[*currentToken].type == TOKEN_FUNCTION) {
+    Token token = tokenList[*currentToken];
+
+    if (token.type == TOKEN_FUNCTION) {
+        // Construct a function node
+        programItem->type = NODE_PROGRAM_ITEMS;
         programItem->programItems.programType = PROGRAM_FUNCTION;
         programItem->programItems.function = parseFunction(tokenList, currentToken);
     } else {
+        // Construct a statement node
+        programItem->type = NODE_PROGRAM_ITEMS;
         programItem->programItems.programType = PROGRAM_STATEMENT;
         programItem->programItems.statement = parseStatement(tokenList, currentToken);
     }
@@ -311,32 +313,39 @@ char** parseParameterList(Token* tokenList, int* currentToken) {
     while (tokenList[*currentToken].type == TOKEN_IDENTIFIER) {
         parameters[paramCount++] = duplicateString(tokenList[*currentToken].lexeme);
         (*currentToken)++;
-
+        
+        // Skip commas if present
         if (tokenList[*currentToken].type == TOKEN_COMMA) {
             (*currentToken)++; // Skip ','
-        } else {
-            break;
         }
     }
 
     parameters[paramCount] = NULL; // Null-terminate the list
     return parameters;
 }
-
 // this node is secretly a linked list, since function bodies, and the top level program
 // can have multiple statements or functions. the linked list ensures that all statements are accounted for
 // TODO: consider tab indentations
 ASTNode* parseStatementList(Token* tokenList, int* currentToken) {
-    //init index 0 of the linked list
     ASTNode* head = NULL;
     ASTNode* tail = NULL;
 
+    // Assume that the function body starts with a TAB token
+    if (tokenList[*currentToken].type != TOKEN_TAB) {
+        fprintf(stderr, "! Expected indentation in function body\n");
+        syntaxErrorFlag = 1;
+        return NULL;
+    }
+
+    // Consume the initial TAB token
+    (*currentToken)++;
+
     while (tokenList[*currentToken].type != TOKEN_EOF &&
            tokenList[*currentToken].type != TOKEN_FUNCTION &&
-           tokenList[*currentToken].type != TOKEN_RETURN) {
+           tokenList[*currentToken].type != TOKEN_TAB) { // Assuming dedent is represented by lack of TAB
         ASTNode* statement = parseStatement(tokenList, currentToken);
         if (statement == NULL) {
-            // TODO: Handle parsing error
+            // Handle parsing error
             return NULL;
         }
 
@@ -347,21 +356,12 @@ ASTNode* parseStatementList(Token* tokenList, int* currentToken) {
             tail->next = statement;
             tail = statement;
         }
-    }
 
-    // Handle return statement
-    if (tokenList[*currentToken].type == TOKEN_RETURN) {
-        ASTNode* returnStmt = parseStatement(tokenList, currentToken);
-        if (returnStmt == NULL) {
-            return NULL;
-        }
-
-        if (head == NULL) {
-            head = returnStmt;
-            tail = returnStmt;
+        // Check for TAB token at the beginning of the next line
+        if (tokenList[*currentToken].type == TOKEN_TAB) {
+            (*currentToken)++; // Consume TAB
         } else {
-            tail->next = returnStmt;
-            tail = returnStmt;
+            break; // End of indented block
         }
     }
 
@@ -375,7 +375,7 @@ ASTNode* parseStatement(Token* tokenList, int* currentToken) {
     //allocate mem
     ASTNode* statementNode = malloc(sizeof(ASTNode));
     if (statementNode == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -401,7 +401,7 @@ ASTNode* parseStatement(Token* tokenList, int* currentToken) {
         statementNode->statement.statementType = STATEMENT_RETURN;
         statementNode->statement.statement = parseReturnStatement(tokenList, currentToken);
     } else {
-        fprintf(stderr, "Unexpected token '%s' in statement\n", token.lexeme);
+        fprintf(stderr, "! Unexpected token '%s' in statement\n", token.lexeme);
         syntaxErrorFlag = 1;
         *currentToken = *currentToken + 1;
         return NULL;
@@ -412,29 +412,43 @@ ASTNode* parseStatement(Token* tokenList, int* currentToken) {
 
 // pretty straightforward, just checks that the assignment is structured correctly
 ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
-    //assign mem 
+    // Allocate memory for the assignment node
     ASTNode* assignmentNode = malloc(sizeof(ASTNode));
     if (assignmentNode == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
     assignmentNode->type = NODE_ASSIGNMENT;
 
     // Expect an identifier and add it to the list of known symbols
-    assignmentNode->assignment.identifierName = duplicateString(tokenList[*currentToken].lexeme);
-    addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_VARIABLE);
-    (*currentToken)++;
+    if (tokenList[*currentToken].type == TOKEN_IDENTIFIER) {
+        
+        // Debugging: print the identifier being assigned
+        printf("Parsing assignment: identifier = %s\n", tokenList[*currentToken].lexeme); //AI CODE
 
-    // Expect a '<-'
-    if (tokenList[*currentToken].type != TOKEN_ASSIGN) {
-        fprintf(stderr, "Expected '<-' in assignment\n");
+
+
+        // Set the identifierName in the AST node and add it to the symbol table
+        assignmentNode->assignment.assignmentIdentifierName = duplicateString(tokenList[*currentToken].lexeme);
+        addSymbol(tokenList[*currentToken].lexeme, SYMBOL_VARIABLE);
+        (*currentToken)++; // Move to the next token (expecting '<-')
+    } else {
+        fprintf(stderr, "! Expected an identifier for assignment on line %d at position %d\n",
+                tokenList[*currentToken].line, tokenList[*currentToken].position);
         syntaxErrorFlag = 1;
         return NULL;
     }
-    (*currentToken)++;
 
-    // Parse expression
+    // Expect a '<-' token
+    if (tokenList[*currentToken].type != TOKEN_ASSIGN) {
+        fprintf(stderr, "! Expected '<-' in assignment\n");
+        syntaxErrorFlag = 1;
+        return NULL;
+    }
+    (*currentToken)++; // Move to the next token (expecting an expression)
+
+    // Parse the expression
     assignmentNode->assignment.expression = parseExpression(tokenList, currentToken);
 
     return assignmentNode;
@@ -445,7 +459,7 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
     // allocate mem
     ASTNode* printNode = malloc(sizeof(ASTNode));
     if (printNode == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -453,12 +467,24 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
 
     (*currentToken)++;
 
-    //ai code here
-    printNode->printStatement.expression = parseExpression(tokenList, currentToken);
-    if (printNode->printStatement.expression == NULL) {
-        fprintf(stderr, "Failed to parse print statement expression\n");
-        free(printNode);
-        return NULL;
+    // check if the next token is '('
+    if (tokenList[*currentToken].type == TOKEN_LPAREN) {
+        (*currentToken)++; // Skip '('
+
+        // parse the expression
+        printNode->printStatement.expression = parseExpression(tokenList, currentToken);
+
+        // expect a ')'
+        if (tokenList[*currentToken].type != TOKEN_RPAREN) {
+            fprintf(stderr, "! Expected closing ')' after expression in print statement\n");
+            syntaxErrorFlag = 1;
+            return NULL;
+        }
+        (*currentToken)++; // skip the ')'
+    } else {
+        // no '(', parse expression directly
+        fprintf(stderr, "! Warning no '()' in print statement is not reccomended\n");
+        printNode->printStatement.expression = parseExpression(tokenList, currentToken);
     }
 
     return printNode;
@@ -468,7 +494,7 @@ ASTNode* parsePrintStatement(Token* tokenList, int* currentToken) {
 ASTNode* parseReturnStatement(Token* tokenList, int* currentToken) {
     ASTNode* returnNode = malloc(sizeof(ASTNode));
     if (returnNode == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -487,19 +513,19 @@ ASTNode* parseReturnStatement(Token* tokenList, int* currentToken) {
 ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
     ASTNode* functionCallNode = malloc(sizeof(ASTNode));
     if (functionCallNode == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
     functionCallNode->type = NODE_FUNCTION_CALL;
 
     // expect identifier
-    functionCallNode->functionCall.identifierName = duplicateString(tokenList[*currentToken].lexeme);
+    functionCallNode->functionCall.functionCallIdentifierName = duplicateString(tokenList[*currentToken].lexeme);
     (*currentToken)++;
 
     // expect '('
     if (tokenList[*currentToken].type != TOKEN_LPAREN) {
-        fprintf(stderr, "Expected '(' after function name\n");
+        fprintf(stderr, "! Expected '(' after function name\n");
         syntaxErrorFlag = 1;
         return NULL;
     }
@@ -510,7 +536,7 @@ ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
 
     // expect a ')'
     if (tokenList[*currentToken].type != TOKEN_RPAREN) {
-        fprintf(stderr, "Expected ')' after function arguments\n");
+        fprintf(stderr, "! Expected ')' after function arguments\n");
         syntaxErrorFlag = 1;
         return NULL;
     }
@@ -562,7 +588,7 @@ ASTNode* parseExpression(Token* tokenList, int* currentToken) {
     while (token.type == TOKEN_PLUS || token.type == TOKEN_MINUS) {
         ASTNode* exprNode = malloc(sizeof(ASTNode));
         if (exprNode == NULL) {
-            fprintf(stderr, "Memory allocation failed\n");
+            fprintf(stderr, "! Memory allocation failed\n");
             exit(EXIT_FAILURE);
         }
 
@@ -591,7 +617,7 @@ ASTNode* parseTerm(Token* tokenList, int* currentToken) {
     while (token.type == TOKEN_MULT || token.type == TOKEN_DIV) {
         ASTNode* termNode = malloc(sizeof(ASTNode));
         if (termNode == NULL) {
-            fprintf(stderr, "Memory allocation failed\n");
+            fprintf(stderr, "! Memory allocation failed\n");
             exit(EXIT_FAILURE);
         }
 
@@ -614,7 +640,7 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
     Token token = tokenList[*currentToken];
     ASTNode* factorNode = malloc(sizeof(ASTNode));
     if (factorNode == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+        fprintf(stderr, "! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -629,7 +655,7 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
         // the council(symbol table) will decide your fate
         Symbol* symbol = findSymbol(token.lexeme);
         if (symbol == NULL) {
-            fprintf(stderr, "Error: Undefined identifier '%s'\n", token.lexeme);
+            fprintf(stderr, "! Error: Undefined identifier '%s'\n", token.lexeme);
             syntaxErrorFlag = 1;
             return NULL;
         }
@@ -645,7 +671,7 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
 
             // Expect ')'
             if (tokenList[*currentToken].type != TOKEN_RPAREN) {
-                fprintf(stderr, "Expected ')' after function arguments\n");
+                fprintf(stderr, "! Expected ')' after function arguments\n");
                 syntaxErrorFlag = 1;
                 return NULL;
             }
@@ -653,10 +679,10 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
         } else if (symbol->type == SYMBOL_VARIABLE) {
             // Variable
             factorNode->factor.factorType = FACTOR_IDENTIFIER;
-            factorNode->factor.identifierName = duplicateString(token.lexeme);
+            factorNode->factor.factoridentifierName = duplicateString(token.lexeme);
             (*currentToken)++;
         } else {
-            fprintf(stderr, "Error: '%s' is not a variable or function\n", token.lexeme);
+            fprintf(stderr, "! Error: '%s' is not a variable or function\n", token.lexeme);
             syntaxErrorFlag = 1;
             return NULL;
         }
@@ -668,13 +694,13 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
 
         // Expect ')'
         if (tokenList[*currentToken].type != TOKEN_RPAREN) {
-            fprintf(stderr, "Expected ')' after expression\n");
+            fprintf(stderr, "! Expected ')' after expression\n");
             syntaxErrorFlag = 1;
             return NULL;
         }
         (*currentToken)++;
     } else {
-        fprintf(stderr, "Unexpected token '%s' in factor\n", token.lexeme);
+        fprintf(stderr, "! Unexpected token '%s' in factor\n", token.lexeme);
         syntaxErrorFlag = 1;
         return NULL;
     }
@@ -684,50 +710,45 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
 
 ASTNode* constructAST(Token* tokenList) {
     int currentToken = 0;
-    
+    int capacity = INITAL_ROOT_NODE_CAPACITY;
+    int amountOfProgramItems = 0;
+
+    // Allocate space for the root node
     ASTNode* ast = malloc(sizeof(ASTNode));
+
     if (ast == NULL) {
-        fprintf(stderr, "Failed to allocate memory for root node\n");
+        fprintf(stderr, "! Failed to allocate memory for root node\n");
         exit(EXIT_FAILURE);
     }
 
     ast->type = NODE_PROGRAM;
-    ast->program.programItems = NULL;
-    int itemCount = 0;
+    ast->next = NULL;
+
+    ast->program.programItems = malloc(capacity * sizeof(ASTNode*)); // Initial allocation for program items
+    if (ast->program.programItems == NULL) {
+        fprintf(stderr, "! Failed to allocate memory for program items\n");
+        exit(EXIT_FAILURE);
+    }
 
     while (tokenList[currentToken].type != TOKEN_EOF) {
-        ASTNode* item = parseProgramItems(tokenList, &currentToken);
-        ast->program.programItems = realloc(ast->program.programItems, (itemCount + 1) * sizeof(ASTNode*));
-        if (ast->program.programItems == NULL) {
-            fprintf(stderr, "Failed to reallocate memory for program items\n");
-            fprintf(stderr, "Error: Failed to parse program item\n"); //ai code here
-            exit(EXIT_FAILURE);
+        // Reallocate memory for more program items if needed
+        if (amountOfProgramItems >= capacity) {
+            capacity *= 2;
+            ast->program.programItems = realloc(ast->program.programItems, capacity * sizeof(ASTNode*));
+            if (ast->program.programItems == NULL) {
+                fprintf(stderr, "! Failed to reallocate memory for program items\n");
+                exit(EXIT_FAILURE);
+            }
         }
-        ast->program.programItems[itemCount++] = item;
+
+        // Parse the next program item and add it to the array of nodes
+        ast->program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
     }
+
+    // Null-terminate the program items array
+    ast->program.programItems[amountOfProgramItems] = NULL;
 
     return ast;
-}
-
-//AI Code Here 
-void freeAST(ASTNode* node) {
-    if (node == NULL) {
-        return;
-    }
-
-    // Free child nodes based on node type
-    switch (node->type) {
-        case NODE_PROGRAM:
-            for (int i = 0; node->program.programItems[i] != NULL; i++) {
-                freeAST(node->program.programItems[i]);
-            }
-            free(node->program.programItems);
-            break;
-        // Add cases for other node types
-    }
-
-    // Free the node itself
-    free(node);
 }
 
 // end ast parsing functions
@@ -764,12 +785,9 @@ void emitIndentation(FILE* outputFile) {
 }
 //start code generation functions
 void generateCode(ASTNode* ast, const char* outputFilename) {
-    
-    
-    
     FILE* outputFile = fopen(outputFilename, "w");
     if (outputFile == NULL) {
-        fprintf(stderr, "Failed to open output file for writing.\n");
+        fprintf(stderr, "! Failed to open output file for writing.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -778,12 +796,6 @@ void generateCode(ASTNode* ast, const char* outputFilename) {
 
     // Generate code for the AST
     generateProgram(ast, outputFile);
-
-    //AI CODE HERE : Claude reccomended this here
-    if (ast == NULL) {
-        fprintf(stderr, "Error: NULL AST passed to generateCode\n");
-        return;
-    }
 
     // Optionally, add a main function if your language requires it
     fprintf(outputFile, "int main() {\n");
@@ -812,10 +824,8 @@ void generateCode(ASTNode* ast, const char* outputFilename) {
 // Generate code for the entire program
 void generateProgram(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_PROGRAM) {
-        fprintf(stderr, "Error: Invalid program node in generateProgram\n"); //AI CODE HERE 
         return;
     }
-
 
     // Generate code for each program item
     for (int i = 0; node->program.programItems[i] != NULL; i++) {
@@ -891,7 +901,7 @@ void generateStatement(ASTNode* node, FILE* outputFile) {
             break;
 
         default:
-            fprintf(stderr, "Unknown statement type in code generation.\n");
+            fprintf(stderr, "! Unknown statement type in code generation.\n");
             break;
     }
 }
@@ -904,7 +914,7 @@ void generateAssignment(ASTNode* node, FILE* outputFile) {
 
     // For simplicity, declare the variable if first time, otherwise assign
     // In a complete implementation, you would track variable declarations
-    fprintf(outputFile, "double %s = ", node->assignment.identifierName);
+    fprintf(outputFile, "double %s = ", node->assignment.assignmentIdentifierName);
     generateExpression(node->assignment.expression, outputFile);
     fprintf(outputFile, ";\n");
 }
@@ -912,7 +922,6 @@ void generateAssignment(ASTNode* node, FILE* outputFile) {
 // Generate code for a print statement
 void generatePrintStatement(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_PRINT) {
-        fprintf(stderr, "Invalid node in generatePrintStatement\n"); // ai code here
         return;
     }
 
@@ -980,7 +989,7 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
             break;
 
         case FACTOR_IDENTIFIER:
-            fprintf(outputFile, "%s", node->factor.identifierName);
+            fprintf(outputFile, "%s", node->factor.factoridentifierName);
             break;
 
         case FACTOR_FUNCTION_CALL:
@@ -994,7 +1003,7 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
             break;
 
         default:
-            fprintf(stderr, "Unknown factor type in code generation.\n");
+            fprintf(stderr, "! Unknown factor type in code generation.\n");
             break;
     }
 }
@@ -1005,7 +1014,7 @@ void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
         return;
     }
 
-    fprintf(outputFile, "%s(", factor->functionCall.identifierName);
+    fprintf(outputFile, "%s(", factor->functionCall.functionCallIdentifierName);
 
     ASTNode* arg = factor->functionCall.expressions;
     while (arg != NULL) {
@@ -1025,7 +1034,7 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
         return;
     }
 
-    fprintf(outputFile, "%s(", node->functionCall.identifierName);
+    fprintf(outputFile, "%s(", node->functionCall.functionCallIdentifierName);
 
     ASTNode* arg = node->functionCall.expressions;
     while (arg != NULL) {
@@ -1045,7 +1054,7 @@ int validateFileExt(const char *fileName){
     char *ext  = strrchr(fileName, '.'); // grab the mem address of where the extention begins in the file name
 
     if(!ext || strcmp(ext, ".ml") != 0){    // check if the file dosent have an extention or has the incorrect extention 
-        fprintf(stderr, "Provided file is not a .ml file\n");
+        fprintf(stderr, "! Provided file is not a .ml file\n");
         return 1;
     }
     return 0;
@@ -1070,7 +1079,7 @@ void advanceCharacter(FILE *file, int *currentCharacter, int *currentLine, int *
     *currentCharacter = fgetc(file);    //gets the next character in the file
     (*currentPosition)++;               // if the next character is a new line then reset the position and increment the line
     if (*currentCharacter == '\n') {    //else just increment the position
-        (*currentLine++);
+        //(*currentLine++); //commented out as is an unsued variable
         *currentPosition = 0;
     }
 }
@@ -1083,7 +1092,7 @@ TokenType getTokenType(char* identifier){
     return TOKEN_IDENTIFIER;
 }
 
-Token* lexer(FILE* file){   //this entire function is pretty much adapted from llvm Kaleidoscope (1.2)
+Token* lexer(FILE* file){   //this entire function is pretty much adapted from llvm Kaleidoscope
     static int currentPosition = 0;
     static int currentLine = 1;
     Token* tokens = malloc(sizeof(Token) * INITIAL_ARRAY_SIZE); //create an array of tokens in memory, todo: dynamic mem allocation
@@ -1239,7 +1248,7 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
             }
         }
         if (currentCharacter == '#') {
-            int startPosition = currentPosition;  // Save the position of the first #
+            //int startPosition = currentPosition;  // Save the position of the first # //commented out as is an unsued variable
 
             // Continue reading until the end of the line or EOF
             while (currentCharacter != '\n' && currentCharacter != EOF ) {
@@ -1280,6 +1289,7 @@ void printIndent(int indentLevel) {
     }
     printf("|_");
 }
+
 // dont need this
 void printAST(ASTNode* node, int indentLevel) {
     if (node == NULL) {
@@ -1348,7 +1358,7 @@ void printAST(ASTNode* node, int indentLevel) {
             break;
 
         case NODE_ASSIGNMENT:
-            printf("Assignment to '%s':\n", node->assignment.identifierName);
+            printf("Assignment to '%s':\n", node->assignment.assignmentIdentifierName);
             printAST(node->assignment.expression, indentLevel + 1);
             break;
 
@@ -1385,7 +1395,7 @@ void printAST(ASTNode* node, int indentLevel) {
                     break;
 
                 case FACTOR_IDENTIFIER:
-                    printf("Identifier: %s\n", node->factor.identifierName);
+                    printf("Identifier: %s\n", node->factor.factoridentifierName);
                     break;
 
                 case FACTOR_FUNCTION_CALL:
@@ -1409,7 +1419,7 @@ void printAST(ASTNode* node, int indentLevel) {
             break;
 
         case NODE_FUNCTION_CALL:
-            printf("Function Call '%s' with arguments:\n", node->functionCall.identifierName);
+            printf("Function Call '%s' with arguments:\n", node->functionCall.functionCallIdentifierName);
             printAST(node->functionCall.expressions, indentLevel + 1);
             break;
 
@@ -1436,7 +1446,7 @@ void printSymbolList(Symbol** symbols, int symbolCount) {
 
 int main(int argc, char *argv[]){
     if(argc < 2){  //check that the user provided cli arguments
-        fprintf(stderr, "At least one command line argument is required\n");
+        fprintf(stderr, "! At least one command line argument is required\n");
         return EXIT_FAILURE;
     }
 
@@ -1446,7 +1456,7 @@ int main(int argc, char *argv[]){
 
     FILE *file = fopen(argv[1], "r");   // open the file and make sure it exists
     if (file == NULL){
-        fprintf(stderr, "File does not exist");
+        fprintf(stderr, "! File does not exist");
         return EXIT_FAILURE;
     }
 
@@ -1482,17 +1492,17 @@ int main(int argc, char *argv[]){
 }
 
     ASTNode* AST = constructAST(tokens);
-    if (AST == NULL) { //ai code here
-        fprintf(stderr, "Failed to construct AST\n");
-        // Free tokens and exit
-    }
 
     printAST(AST, 0);
     printSymbolList(symbolList, 10);
 
 
     generateCode(AST, "output.c");
-    freeAST(AST);
+
+
+    //still need to run the code with system calls
+
+
 
     return EXIT_SUCCESS;
 }

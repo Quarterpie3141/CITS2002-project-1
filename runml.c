@@ -1,3 +1,8 @@
+//  CITS2002 Project 1 2024
+//  Student1:   23783481 Prashan Wijesinghe 
+//  Student2:   23180621 William Craig
+//  Platform:   Apple
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
