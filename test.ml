@@ -1,3 +1,2 @@
-# 2.5 is printed
-x <- 2.5
-print x
+# 3.500000 is printed
+print 3.5

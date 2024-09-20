@@ -198,18 +198,14 @@ void addSymbol(char* name, SymbolType type) {
 // loop through the array and find a symbol with the same name, return null otherwise
 Symbol* findSymbol(char* name) {
     int index = 0;
-    Symbol* current = symbolList[index];
-    while (current != NULL) {
+    while (index < MAX_IDENTIFIERS && symbolList[index] != NULL) {
+        Symbol* current = symbolList[index];
         if (strcmp(current->name, name) == 0) {
             return current;
         }
-
-        if(index == MAX_IDENTIFIERS){
-            return NULL;
-        }
-
-     index++;
+        index++;
     }
+    return NULL; // Symbol not found
 }
 
 
@@ -540,17 +536,18 @@ ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
     return functionCallNode;
 }
 
-//for functions
+//for functions that have multiple arguments i.e. `sum(x, 24+y, z*x)`
+//this function will parse all of the arguments as another linked list
 ASTNode* parseArgumentList(Token* tokenList, int* currentToken) {
     ASTNode* head = NULL;
     ASTNode* tail = NULL;
 
-    // Check if the argument list is empty
+    //check if the argument list is empty
     if (tokenList[*currentToken].type == TOKEN_RPAREN) {
         return NULL;
     }
 
-    // Parse first argument
+    //parse first argument
     ASTNode* arg = parseExpression(tokenList, currentToken);
     if (arg == NULL) {
         return NULL;
@@ -558,9 +555,9 @@ ASTNode* parseArgumentList(Token* tokenList, int* currentToken) {
     head = arg;
     tail = arg;
 
-    // Parse additional arguments
+    //keep parsing arguments
     while (tokenList[*currentToken].type == TOKEN_COMMA) {
-        (*currentToken)++; // Skip ','
+        (*currentToken)++; //skip the ','
         arg = parseExpression(tokenList, currentToken);
         if (arg == NULL) {
             return NULL;
@@ -1097,7 +1094,13 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
 
     while (currentCharacter != EOF){
         // can optimise this, todo
-        if (currentCharacter == ' ' || currentCharacter == '\n' || currentCharacter == '\r') { // skip tokeniasation of spaces, new lines, and carrigae returns
+        if (currentCharacter == '\n' || currentCharacter == '\r') {
+            currentLine++;
+            currentPosition = 0;
+            advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
+            continue;
+        }
+        if (currentCharacter == ' ') { // skip tokeniasation of spaces, new lines, and carrigae returns
             advanceCharacter(file, &currentCharacter, &currentLine, &currentPosition);
             continue;
         }
@@ -1452,19 +1455,31 @@ int main(int argc, char *argv[]){
     fclose(file);
 
     for (int i = 0; ; i++) {
-        printf("Token: %-12s Lexeme: %s (Line %d) (Position %d)\n",
-               tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
-               tokens[i].type == TOKEN_COMMENT ? "COMMENT" :
-               tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
-               tokens[i].type == TOKEN_PLUS ? "PLUS" :
-               tokens[i].type == TOKEN_PRINT ? "PRINT" :
-               tokens[i].type == TOKEN_ASSIGN ? "ASSIGNMET OP" :
-               tokens[i].type == TOKEN_TAB ? "TAB" :
-               tokens[i].type == TOKEN_EOF ? "END OF FILE" :
-               "UNKNOWN",
-               tokens[i].lexeme, tokens[i].line, tokens[i].position);
-        if (tokens[i].type == TOKEN_EOF){break;}
+    printf("Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
+           tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
+           tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
+           tokens[i].type == TOKEN_FUNCTION ? "FUNCTION" :
+           tokens[i].type == TOKEN_PRINT ? "PRINT" :
+           tokens[i].type == TOKEN_RETURN ? "RETURN" :
+           tokens[i].type == TOKEN_PLUS ? "PLUS" :
+           tokens[i].type == TOKEN_MINUS ? "MINUS" :
+           tokens[i].type == TOKEN_MULT ? "MULTIPLY" :
+           tokens[i].type == TOKEN_DIV ? "DIVIDE" :
+           tokens[i].type == TOKEN_ASSIGN ? "ASSIGNMENT OPERATOR" :
+           tokens[i].type == TOKEN_LPAREN ? "LEFT PARENTHESIS" :
+           tokens[i].type == TOKEN_RPAREN ? "RIGHT PARENTHESIS" :
+           tokens[i].type == TOKEN_COMMA ? "COMMA" :
+           tokens[i].type == TOKEN_TAB ? "TAB" :
+           tokens[i].type == TOKEN_COMMENT ? "COMMENT" :
+           tokens[i].type == TOKEN_EOF ? "END OF FILE" :
+           tokens[i].type == TOKEN_UNKNOWN ? "UNKNOWN" :
+           "UNKNOWN",
+           tokens[i].lexeme, tokens[i].line, tokens[i].position);
+
+    if (tokens[i].type == TOKEN_EOF) {
+        break;
     }
+}
 
     ASTNode* AST = constructAST(tokens);
 
