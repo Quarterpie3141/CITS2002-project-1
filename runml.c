@@ -328,6 +328,7 @@ void printNode(ASTNode* node) {
 
 
 // end of AST types
+/*
 
 // the string copy function was not working properly
 char *duplicateString(const char *string) {
@@ -338,6 +339,7 @@ char *duplicateString(const char *string) {
     }
     return copy;    //
 }
+*/
 
 Symbol* symbolList[MAX_IDENTIFIERS];
 
@@ -345,7 +347,7 @@ Symbol* symbolList[MAX_IDENTIFIERS];
 void addSymbol(char* name, SymbolType type) {
     static int currentSymbol = 0; // keep track of the current number of symbols, TODO: warn the user when they use too many identifiers
     Symbol* symbol = malloc(sizeof(Symbol));
-    (*symbol).name = duplicateString(name);
+    (*symbol).name = name; //dup
     (*symbol).type = type;
     symbolList[currentSymbol++] = symbol;
 }
@@ -408,7 +410,7 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
         return NULL;
     }
 
-    functionNode->function.functionIdentifier = duplicateString(tokenList[*currentToken].lexeme);
+    functionNode->function.functionIdentifier = tokenList[*currentToken].lexeme;
     addSymbol(tokenList[*currentToken].lexeme, SYMBOL_FUNCTION);
     (*currentToken)++;
 
@@ -477,7 +479,7 @@ char** parseParameterList(Token* tokenList, int* currentToken, int hasParenthese
     }
 
     while (tokenList[*currentToken].type == TOKEN_IDENTIFIER) {
-        parameters[paramCount++] = duplicateString(tokenList[*currentToken].lexeme);
+        parameters[paramCount++] = tokenList[*currentToken].lexeme; //dup
         addSymbol(tokenList[*currentToken].lexeme, SYMBOL_VARIABLE);
         (*currentToken)++;
 
@@ -608,8 +610,11 @@ ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
 
     assignmentNode->type = NODE_ASSIGNMENT;
 
+    fprintf(stderr, "%s bahjdbashjkfbwld", tokenList[*currentToken].lexeme);
+
     // Expect an identifier and add it to the list of known symbols
-    assignmentNode->assignment.identifierName = duplicateString(tokenList[*currentToken].lexeme);
+    assignmentNode->assignment.identifierName = tokenList[*currentToken].lexeme;
+    fprintf(stderr, "%s", assignmentNode->assignment.identifierName);
     addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_VARIABLE);
     (*currentToken)++;
 
@@ -692,7 +697,7 @@ ASTNode* parseFunctionCall(Token* tokenList, int* currentToken) {
     functionCallNode->type = NODE_FUNCTION_CALL;
 
     // expect identifier
-    functionCallNode->functionCall.identifierName = duplicateString(tokenList[*currentToken].lexeme);
+    functionCallNode->functionCall.identifierName = tokenList[*currentToken].lexeme;
     (*currentToken)++;
 
     // expect '('
@@ -835,7 +840,7 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
         if (symbol->type == SYMBOL_FUNCTION && tokenList[*currentToken + 1].type == TOKEN_LPAREN) {
             // Function call
             factorNode->factor.factorType = FACTOR_FUNCTION_CALL;
-            factorNode->factor.functionCall.function_name = duplicateString(token.lexeme);
+            factorNode->factor.functionCall.function_name = token.lexeme;
             (*currentToken) += 2; // Skip identifier and '('
 
             // Parse arguments
@@ -851,7 +856,7 @@ ASTNode* parseFactor(Token* tokenList, int* currentToken) {
         } else if (symbol->type == SYMBOL_VARIABLE) {
             // Variable
             factorNode->factor.factorType = FACTOR_IDENTIFIER;
-            factorNode->factor.identifierName = duplicateString(token.lexeme);
+            factorNode->factor.identifierName = token.lexeme; //dup
             (*currentToken)++;
         } else {
             fprintf(stderr, "! Error: '%s' is not a variable or function\n", token.lexeme);
@@ -919,13 +924,14 @@ ASTNode* constructAST(Token* tokenList) {
 
             // Parse the next program item and add it to the array of nodes
             ast->program.programItems[amountOfProgramItems++] = parseProgramItems(tokenList, &currentToken);
-    }
+        }
 
         // Null-terminate the program items array
         ast->program.programItems[amountOfProgramItems] = NULL;
 
         return ast;
     }
+    return NULL;
 }
 
 // end ast parsing functions
@@ -943,6 +949,7 @@ void generateTerm(ASTNode* node, FILE* outputFile);
 void generateFactor(ASTNode* node, FILE* outputFile);
 void generateFunctionCall(ASTNode* node, FILE* outputFile);
 void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile);
+void generateDeclarations(FILE* outputFile);
 
 int indentLevel = 0;
 void increaseIndent() {
@@ -961,6 +968,9 @@ void emitIndentation(FILE* outputFile) {
     }
 }
 //start code generation functions
+
+
+
 void generateCode(ASTNode* ast, const char* outputFilename) {
     FILE* outputFile = fopen(outputFilename, "w");
     if (outputFile == NULL) {
@@ -970,6 +980,7 @@ void generateCode(ASTNode* ast, const char* outputFilename) {
 
     // Emit necessary headers
     fprintf(outputFile, "#include <stdio.h>\n\n");
+    generateDeclarations(outputFile);
 
     // Generate code for the AST
     generateProgram(ast, outputFile);
@@ -1049,7 +1060,10 @@ void generateFunction(ASTNode* node, FILE* outputFile) {
     }
 
     decreaseIndent();
+    fprintf(outputFile, "return 0; \n");
     fprintf(outputFile, "}\n\n");
+
+    
 }
 
 void generateStatement(ASTNode* node, FILE* outputFile) {
@@ -1092,6 +1106,10 @@ void generateAssignment(ASTNode* node, FILE* outputFile) {
     // For simplicity, declare the variable if first time, otherwise assign
     // In a complete implementation, you would track variable declarations
     fprintf(outputFile, "double %s = ", node->assignment.identifierName);
+
+    //fprintf(stderr,  "%s random letters \n", node->assignment.identifierName);
+    //printNode(node);
+
     generateExpression(node->assignment.expression, outputFile);
     fprintf(outputFile, ";\n");
 }
@@ -1210,6 +1228,7 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
     }
 
     printNode(node);
+    fprintf(outputFile, "%s (", node->functionCall.identifierName);
 
     ASTNode* arg = node->functionCall.expressions;
     while (arg != NULL) {
@@ -1223,6 +1242,23 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
     fprintf(outputFile, ")");
 }
 
+void generateDeclarations(FILE* outputFile) {
+    // Iterate over the symbol list and generate declarations
+    for (int i = 0; i < MAX_IDENTIFIERS; i++) {
+        Symbol* symbol = symbolList[i];
+        if (symbol == NULL) {
+            // Reached the end of the symbol list
+            fprintf(outputFile, "\n");
+            break;
+        }
+
+        if (symbol->type == SYMBOL_VARIABLE) {
+            // Declare the variable at the top of main
+            fprintf(outputFile, "double %s;\n", symbol->name);
+        } else if (symbol->type == SYMBOL_FUNCTION) {
+        }
+    }
+}
 //end code generation functions
 
 int validateFileExt(const char *fileName){
@@ -1239,7 +1275,7 @@ int validateFileExt(const char *fileName){
 Token createToken(TokenType type, const char *lexeme, int line, int position) {
     Token token;    // instantiates a new token struct and fills out the values with the ones provided
     token.type = type;
-    token.lexeme = duplicateString(lexeme);
+    token.lexeme = strdup(lexeme);//dup
     token.line = line;
     token.position = position;
     return token;
@@ -1669,18 +1705,17 @@ int main(int argc, char *argv[]){
     printAST(AST, 0);
     printSymbolList(symbolList, 10);
     generateCode(AST, "output.c");
-  /*    
+   
+   
+   
+   
     //complile the output.c file into output
-    int compileResult = system("cc -std=c11 -Wall -Werror -o output output.c");
+    int compileResult = system("cc -std=c11 -o output output.c");
     if (compileResult != 0){
         fprintf(stderr, "! Output failed to compile, failed with error code %d\n", compileResult);
         
         
-        int removeResult = remove("output.c");
-        if (removeResult != 0){
-            fprintf(stderr, "! System not able to delete 'output.c' file , failed with error code %d\n", removeResult);
-            return 1;
-        } 
+        
         
         return 1;
     } 
@@ -1692,6 +1727,7 @@ int main(int argc, char *argv[]){
         return 1;
     } 
 
+    /*
     //delete the output.c file
     int removeResult = remove("output.c");
     if (removeResult != 0){
@@ -1699,6 +1735,7 @@ int main(int argc, char *argv[]){
         return 1;
     } 
 
+    */
     //delete the compiled output file
   
     int removeCompiledResult = remove("output");
@@ -1706,7 +1743,8 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "! System not able to delete compiled 'output' file , failed with error code %d\n", removeCompiledResult);
         return 1;
     } 
-    */
+
+    
 
 
     return EXIT_SUCCESS;

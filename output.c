@@ -1,7 +1,11 @@
 #include <stdio.h>
 
+double one;
+double value;
+
 double increment(double value) {
     return value + one;
+return 0; 
 }
 
 int main() {
