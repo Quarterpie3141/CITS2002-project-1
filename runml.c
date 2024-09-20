@@ -184,23 +184,23 @@ typedef struct Symbol {
 
 void printNode(ASTNode* node) {
     if (node == NULL) {
-        fprintf(stderr, "Node is NULL\n");
+        fprintf(stderr, "! Node is NULL\n");
         return;
     }
 
     switch (node->type) {
         case NODE_PROGRAM:
-            fprintf(stderr, "Node Type: PROGRAM\n");
+            fprintf(stderr, "! Node Type: PROGRAM\n");
             if (node->program.programItems != NULL) {
-                fprintf(stderr, "Program contains an array of program items.\n");
+                fprintf(stderr, "! Program contains an array of program items.\n");
             } else {
-                fprintf(stderr, "Program contains no items.\n");
+                fprintf(stderr, "! Program contains no items.\n");
             }
             break;
 
         case NODE_PROGRAM_ITEMS:
-            fprintf(stderr, "Node Type: PROGRAM ITEMS\n");
-            fprintf(stderr, "Program item type: %d\n", node->programItems.programType);
+            fprintf(stderr, "! Node Type: PROGRAM ITEMS\n");
+            fprintf(stderr, "! Program item type: %d\n", node->programItems.programType);
             if (node->programItems.programType == PROGRAM_STATEMENT) {
                 fprintf(stderr, "Program item is a statement.\n");
             } else if (node->programItems.programType == PROGRAM_FUNCTION) {
@@ -610,11 +610,11 @@ ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
 
     assignmentNode->type = NODE_ASSIGNMENT;
 
-    fprintf(stderr, "%s bahjdbashjkfbwld", tokenList[*currentToken].lexeme);
+    //fprintf(stderr, "%s bahjdbashjkfbwld", tokenList[*currentToken].lexeme);
 
     // Expect an identifier and add it to the list of known symbols
     assignmentNode->assignment.identifierName = tokenList[*currentToken].lexeme;
-    fprintf(stderr, "%s", assignmentNode->assignment.identifierName);
+    //fprintf(stderr, "%s", assignmentNode->assignment.identifierName);
     addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_VARIABLE);
     (*currentToken)++;
 
@@ -1254,7 +1254,7 @@ void generateDeclarations(FILE* outputFile) {
 
         if (symbol->type == SYMBOL_VARIABLE) {
             // Declare the variable at the top of main
-            fprintf(outputFile, "double %s;\n", symbol->name);
+            fprintf(outputFile, "extern double %s;\n", symbol->name);
         } else if (symbol->type == SYMBOL_FUNCTION) {
         }
     }
@@ -1499,7 +1499,7 @@ void printIndent(int indentLevel) {
     for (int i = 0; i < indentLevel; i++) {
         printf("    "); // 4 spaces per indent level
     }
-    printf("|_");
+    printf("@ |_");
 }
 void printAST(ASTNode* node, int indentLevel) {
     if (node == NULL) {
@@ -1510,7 +1510,7 @@ void printAST(ASTNode* node, int indentLevel) {
     }
     switch (node->type) {
         case NODE_PROGRAM:
-            printf("Program:\n");
+            printf("@ Program:\n");
             for (int i = 0; node->program.programItems[i] != NULL; i++) {
                 printAST(node->program.programItems[i], indentLevel + 1);
             }
@@ -1675,7 +1675,7 @@ int main(int argc, char *argv[]){
     fclose(file);
 
     for (int i = 0; ; i++) {
-        printf("Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
+        printf("@ Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
             tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
             tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
             tokens[i].type == TOKEN_FUNCTION ? "FUNCTION" :
