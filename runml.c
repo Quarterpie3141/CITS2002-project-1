@@ -1573,7 +1573,7 @@ int main(int argc, char *argv[]){
         return 1;
     } 
 
-    /*
+    
     //delete the output.c file
     int removeResult = remove("output.c");
     if (removeResult != 0){
@@ -1581,7 +1581,7 @@ int main(int argc, char *argv[]){
         return 1;
     } 
 
-    */
+    
     //delete the compiled output file
   
     int removeCompiledResult = remove("output");
