@@ -1488,31 +1488,31 @@ int main(int argc, char *argv[]){
     fclose(file);
 
     for (int i = 0; ; i++) {
-    printf("Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
-           tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
-           tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
-           tokens[i].type == TOKEN_FUNCTION ? "FUNCTION" :
-           tokens[i].type == TOKEN_PRINT ? "PRINT" :
-           tokens[i].type == TOKEN_RETURN ? "RETURN" :
-           tokens[i].type == TOKEN_PLUS ? "PLUS" :
-           tokens[i].type == TOKEN_MINUS ? "MINUS" :
-           tokens[i].type == TOKEN_MULT ? "MULTIPLY" :
-           tokens[i].type == TOKEN_DIV ? "DIVIDE" :
-           tokens[i].type == TOKEN_ASSIGN ? "ASSIGNMENT OPERATOR" :
-           tokens[i].type == TOKEN_LPAREN ? "LEFT PARENTHESIS" :
-           tokens[i].type == TOKEN_RPAREN ? "RIGHT PARENTHESIS" :
-           tokens[i].type == TOKEN_COMMA ? "COMMA" :
-           tokens[i].type == TOKEN_TAB ? "TAB" :
-           tokens[i].type == TOKEN_COMMENT ? "COMMENT" :
-           tokens[i].type == TOKEN_EOF ? "END OF FILE" :
-           tokens[i].type == TOKEN_UNKNOWN ? "UNKNOWN" :
-           "UNKNOWN",
-           tokens[i].lexeme, tokens[i].line, tokens[i].position);
+        printf("Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
+            tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
+            tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
+            tokens[i].type == TOKEN_FUNCTION ? "FUNCTION" :
+            tokens[i].type == TOKEN_PRINT ? "PRINT" :
+            tokens[i].type == TOKEN_RETURN ? "RETURN" :
+            tokens[i].type == TOKEN_PLUS ? "PLUS" :
+            tokens[i].type == TOKEN_MINUS ? "MINUS" :
+            tokens[i].type == TOKEN_MULT ? "MULTIPLY" :
+            tokens[i].type == TOKEN_DIV ? "DIVIDE" :
+            tokens[i].type == TOKEN_ASSIGN ? "ASSIGNMENT OPERATOR" :
+            tokens[i].type == TOKEN_LPAREN ? "LEFT PARENTHESIS" :
+            tokens[i].type == TOKEN_RPAREN ? "RIGHT PARENTHESIS" :
+            tokens[i].type == TOKEN_COMMA ? "COMMA" :
+            tokens[i].type == TOKEN_TAB ? "TAB" :
+            tokens[i].type == TOKEN_COMMENT ? "COMMENT" :
+            tokens[i].type == TOKEN_EOF ? "END OF FILE" :
+            tokens[i].type == TOKEN_UNKNOWN ? "UNKNOWN" :
+            "UNKNOWN",
+            tokens[i].lexeme, tokens[i].line, tokens[i].position);
 
-    if (tokens[i].type == TOKEN_EOF) {
-        break;
+        if (tokens[i].type == TOKEN_EOF) {
+            break;
+        }
     }
-}
 
     ASTNode* AST = constructAST(tokens);
 
@@ -1522,6 +1522,44 @@ int main(int argc, char *argv[]){
 
     generateCode(AST, "output.c");
 
+    //complile the output.c file into output
+    int compileResult = system("cc -std=c11 -Wall -Werror -o output output.c");
+    if (compileResult != 0){
+        fprintf(stderr, "! Output failed to compile, failed with error code %d\n", compileResult);
+        
+        
+        int removeResult = remove("output.c");
+        if (removeResult != 0){
+            fprintf(stderr, "! System not able to delete 'output.c' file , failed with error code %d\n", removeResult);
+            return 1;
+        } 
+        
+        return 1;
+    } 
+
+    //run the output file 
+    int runResult = system("./output");
+    if (runResult != 0){
+        fprintf(stderr, "! Output failed to run, failed with error code %d\n", runResult);
+        return 1;
+    } 
+
+    //delete the output.c file
+    int removeResult = remove("output.c");
+    if (removeResult != 0){
+        fprintf(stderr, "! System not able to delete 'output.c' file , failed with error code %d\n", removeResult);
+        return 1;
+    } 
+
+    //delete the compiled output file
+    int removeCompiledResult = remove("output");
+    if (removeCompiledResult != 0){
+        fprintf(stderr, "! System not able to delete compiled 'output' file , failed with error code %d\n", removeCompiledResult);
+        return 1;
+    } 
+
+
     return EXIT_SUCCESS;
 }
+
 
