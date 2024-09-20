@@ -182,164 +182,10 @@ typedef struct Symbol {
 
 
 
-void printNode(ASTNode* node) {
-    if (node == NULL) {
-        fprintf(stderr, "! Node is NULL\n");
-        return;
-    }
-
-    switch (node->type) {
-        case NODE_PROGRAM:
-            fprintf(stderr, "! Node Type: PROGRAM\n");
-            if (node->program.programItems != NULL) {
-                fprintf(stderr, "! Program contains an array of program items.\n");
-            } else {
-                fprintf(stderr, "! Program contains no items.\n");
-            }
-            break;
-
-        case NODE_PROGRAM_ITEMS:
-            fprintf(stderr, "! Node Type: PROGRAM ITEMS\n");
-            fprintf(stderr, "! Program item type: %d\n", node->programItems.programType);
-            if (node->programItems.programType == PROGRAM_STATEMENT) {
-                fprintf(stderr, "Program item is a statement.\n");
-            } else if (node->programItems.programType == PROGRAM_FUNCTION) {
-                fprintf(stderr, "Program item is a function.\n");
-            }
-            break;
-
-        case NODE_FUNCTION:
-            fprintf(stderr, "Node Type: FUNCTION\n");
-            fprintf(stderr, "Function name: %s\n", node->function.functionIdentifier);
-            if (node->function.parameterIdentifiers != NULL) {
-                fprintf(stderr, "Function has parameters.\n");
-            } else {
-                fprintf(stderr, "Function has no parameters.\n");
-            }
-            if (node->function.statements != NULL) {
-                fprintf(stderr, "Function has a statement body.\n");
-            } else {
-                fprintf(stderr, "Function has no statements.\n");
-            }
-            break;
-
-        case NODE_STATEMENT:
-            fprintf(stderr, "Node Type: STATEMENT\n");
-            fprintf(stderr, "Statement type: %d\n", node->statement.statementType);
-            if (node->statement.statement != NULL) {
-                fprintf(stderr, "Statement exists.\n");
-            } else {
-                fprintf(stderr, "Statement is empty.\n");
-            }
-            break;
-
-        case NODE_ASSIGNMENT:
-            fprintf(stderr, "Node Type: ASSIGNMENT\n");
-            fprintf(stderr, "Variable: %s\n", node->assignment.identifierName);
-            if (node->assignment.expression != NULL) {
-                fprintf(stderr, "Assignment has an expression.\n");
-            } else {
-                fprintf(stderr, "Assignment has no expression.\n");
-            }
-            break;
-
-        case NODE_PRINT:
-            fprintf(stderr, "Node Type: PRINT STATEMENT\n");
-            if (node->printStatement.expression != NULL) {
-                fprintf(stderr, "Print statement has an expression.\n");
-            } else {
-                fprintf(stderr, "Print statement has no expression.\n");
-            }
-            break;
-
-        case NODE_RETURN:
-            fprintf(stderr, "Node Type: RETURN STATEMENT\n");
-            if (node->returnStatement.expression != NULL) {
-                fprintf(stderr, "Return statement has an expression.\n");
-            } else {
-                fprintf(stderr, "Return statement has no expression.\n");
-            }
-            break;
-
-        case NODE_EXPRESSION:
-            fprintf(stderr, "Node Type: EXPRESSION\n");
-            if (node->expression.term != NULL) {
-                fprintf(stderr, "Expression has a term.\n");
-            } else {
-                fprintf(stderr, "Expression has no term.\n");
-            }
-            if (node->expression.operator != 0) {
-                fprintf(stderr, "Operator: %c\n", node->expression.operator);
-            }
-            if (node->expression.expression != NULL) {
-                fprintf(stderr, "Expression has a sub-expression.\n");
-            }
-            break;
-
-        case NODE_TERM:
-            fprintf(stderr, "Node Type: TERM\n");
-            if (node->term.factor != NULL) {
-                fprintf(stderr, "Term has a factor.\n");
-            }
-            if (node->term.operator != 0) {
-                fprintf(stderr, "Operator: %c\n", node->term.operator);
-            }
-            if (node->term.term != NULL) {
-                fprintf(stderr, "Term has a sub-term.\n");
-            }
-            break;
-
-        case NODE_FACTOR:
-            fprintf(stderr, "Node Type: FACTOR\n");
-            fprintf(stderr, "Factor type: %d\n", node->factor.factorType);
-            switch (node->factor.factorType) {
-                case FACTOR_CONSTANT:
-                    fprintf(stderr, "Constant value: %s\n", node->factor.constantValue);
-                    break;
-                case FACTOR_IDENTIFIER:
-                    fprintf(stderr, "Identifier: %s\n", node->factor.identifierName);
-                    break;
-                case FACTOR_FUNCTION_CALL:
-                    fprintf(stderr, "Function call: %s\n", node->factor.functionCall.function_name);
-                    break;
-                case FACTOR_EXPRESSION:
-                    fprintf(stderr, "Factor is an expression.\n");
-                    break;
-            }
-            break;
-
-        case NODE_FUNCTION_CALL:
-            fprintf(stderr, "Node Type: FUNCTION CALL\n");
-            fprintf(stderr, "Function name: %s\n", node->functionCall.identifierName);
-            if (node->functionCall.expressions != NULL) {
-                fprintf(stderr, "Function call has arguments.\n");
-            } else {
-                fprintf(stderr, "Function call has no arguments.\n");
-            }
-            break;
-
-        default:
-            fprintf(stderr, "Unknown node type!\n");
-            break;
-    }
-}
-
-
 
 
 // end of AST types
-/*
 
-// the string copy function was not working properly
-char *duplicateString(const char *string) {
-    int legnth = strlen(string) + 1; // get the length of the string including the null byte
-    char *copy = malloc(legnth);   // malloc enough  mem for the copy
-    if (copy) {
-        memcpy(copy, string, legnth);   //copy the sting into mem
-    }
-    return copy;    //
-}
-*/
 
 Symbol* symbolList[MAX_IDENTIFIERS];
 
@@ -389,7 +235,7 @@ char** parseParameterList(Token* tokenList, int* currentToken, int hasParenthese
 ASTNode* parseFunction(Token* tokenList, int* currentToken) {
     ASTNode* functionNode = malloc(sizeof(ASTNode));
     if (functionNode == NULL) {
-        fprintf(stderr, "! Memory allocation failed\n");
+        fprintf(stderr, " ! Memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -427,7 +273,7 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
     // If there was '(', expect ')'
     if (hasParentheses == 1) {
         if (tokenList[*currentToken].type != TOKEN_RPAREN) {
-            fprintf(stderr, "Expected ')' after function parameters\n");
+            fprintf(stderr, "! Expected ')' after function parameters\n");
             syntaxErrorFlag = 1;
             return NULL;
         }
@@ -610,11 +456,11 @@ ASTNode* parseAssignment(Token* tokenList, int* currentToken) {
 
     assignmentNode->type = NODE_ASSIGNMENT;
 
-    //fprintf(stderr, "%s bahjdbashjkfbwld", tokenList[*currentToken].lexeme);
+    
 
     // Expect an identifier and add it to the list of known symbols
     assignmentNode->assignment.identifierName = tokenList[*currentToken].lexeme;
-    //fprintf(stderr, "%s", assignmentNode->assignment.identifierName);
+    
     addSymbol(tokenList[(*currentToken)].lexeme, SYMBOL_VARIABLE);
     (*currentToken)++;
 
@@ -1207,7 +1053,7 @@ void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
     if (factor == NULL) {
         return;
     }
-    fprintf(stderr, "%s(", factor->factor.functionCall.function_name);
+    
     fprintf(outputFile, "%s(", factor->factor.functionCall.function_name);
     ASTNode* arg = factor->factor.functionCall.args;
     while (arg != NULL) {
@@ -1227,7 +1073,7 @@ void generateFunctionCall(ASTNode* node, FILE* outputFile) {
         return;
     }
 
-    printNode(node);
+
     fprintf(outputFile, "%s (", node->functionCall.identifierName);
 
     ASTNode* arg = node->functionCall.expressions;
@@ -1254,7 +1100,7 @@ void generateDeclarations(FILE* outputFile) {
 
         if (symbol->type == SYMBOL_VARIABLE) {
             // Declare the variable at the top of main
-            fprintf(outputFile, "extern double %s;\n", symbol->name);
+            fprintf(outputFile, "double %s;\n", symbol->name);
         } else if (symbol->type == SYMBOL_FUNCTION) {
         }
     }
@@ -1497,9 +1343,9 @@ Token* lexer(FILE* file){   //this entire function is pretty much adapted from l
 // dont need this, debug statements
 void printIndent(int indentLevel) {
     for (int i = 0; i < indentLevel; i++) {
-        printf("    "); // 4 spaces per indent level
+        fprintf(stdout,"    "); // 4 spaces per indent level
     }
-    printf("@ |_");
+    fprintf(stdout,"@ |_");
 }
 void printAST(ASTNode* node, int indentLevel) {
     if (node == NULL) {
@@ -1510,7 +1356,7 @@ void printAST(ASTNode* node, int indentLevel) {
     }
     switch (node->type) {
         case NODE_PROGRAM:
-            printf("@ Program:\n");
+            fprintf(stdout,"@ Program:\n");
             for (int i = 0; node->program.programItems[i] != NULL; i++) {
                 printAST(node->program.programItems[i], indentLevel + 1);
             }
@@ -1518,21 +1364,21 @@ void printAST(ASTNode* node, int indentLevel) {
 
         case NODE_PROGRAM_ITEMS:
             if (node->programItems.programType == PROGRAM_FUNCTION) {
-                printf("Function Declaration:\n");
+                fprintf(stdout,"Function Declaration:\n");
                 printAST(node->programItems.function, indentLevel + 1);
             } else if (node->programItems.programType == PROGRAM_STATEMENT) {
-                printf("Statement:\n");
+                fprintf(stdout,"Statement:\n");
                 printAST(node->programItems.statement, indentLevel + 1);
             }
             break;
 
         case NODE_FUNCTION:
-            printf("Function '%s' with parameters:\n", node->function.functionIdentifier);
+            fprintf(stdout,"Function '%s' with parameters:\n", node->function.functionIdentifier);
             // Print parameters if any
             if (node->function.parameterIdentifiers != NULL) {
                 for (int i = 0; node->function.parameterIdentifiers[i] != NULL; i++) {
                     printIndent(indentLevel + 1);
-                    printf("Parameter: %s\n", node->function.parameterIdentifiers[i]);
+                    fprintf(stdout,"Parameter: %s\n", node->function.parameterIdentifiers[i]);
                 }
             }
             // Print function body
@@ -1542,48 +1388,48 @@ void printAST(ASTNode* node, int indentLevel) {
         case NODE_STATEMENT:
             switch (node->statement.statementType) {
                 case STATEMENT_ASSIGNMENT:
-                    printf("Assignment Statement:\n");
+                    fprintf(stdout,"Assignment Statement:\n");
                     printAST(node->statement.statement, indentLevel + 1);
                     break;
 
                 case STATEMENT_PRINT:
-                    printf("Print Statement:\n");
+                    fprintf(stdout,"Print Statement:\n");
                     printAST(node->statement.statement, indentLevel + 1);
                     break;
 
                 case STATEMENT_RETURN:
-                    printf("Return Statement:\n");
+                    fprintf(stdout,"Return Statement:\n");
                     printAST(node->statement.statement, indentLevel + 1);
                     break;
 
                 case STATEMENT_FUNCTION_CALL:
-                    printf("Function Call Statement:\n");
+                    fprintf(stdout,"Function Call Statement:\n");
                     printAST(node->statement.statement, indentLevel + 1);
                     break;
 
                 default:
-                    printf("Unknown Statement Type\n");
+                    fprintf(stdout,"Unknown Statement Type\n");
                     break;
             }
             break;
 
         case NODE_ASSIGNMENT:
-            printf("Assignment to '%s':\n", node->assignment.identifierName);
+            fprintf(stdout,"Assignment to '%s':\n", node->assignment.identifierName);
             printAST(node->assignment.expression, indentLevel + 1);
             break;
 
         case NODE_PRINT:
-            printf("Print Expression:\n");
+            fprintf(stdout,"Print Expression:\n");
             printAST(node->printStatement.expression, indentLevel + 1);
             break;
 
         case NODE_RETURN:
-            printf("Return Expression:\n");
+            fprintf(stdout,"Return Expression:\n");
             printAST(node->returnStatement.expression, indentLevel + 1);
             break;
 
         case NODE_EXPRESSION:
-            printf("Expression '%c':\n", node->expression.operator);
+            fprintf(stdout,"Expression '%c':\n", node->expression.operator);
             printAST(node->expression.term, indentLevel + 1);
             if (node->expression.expression != NULL) {
                 printAST(node->expression.expression, indentLevel + 1);
@@ -1591,7 +1437,7 @@ void printAST(ASTNode* node, int indentLevel) {
             break;
 
         case NODE_TERM:
-            printf("Term '%c':\n", node->term.operator);
+            fprintf(stdout,"Term '%c':\n", node->term.operator);
             printAST(node->term.factor, indentLevel + 1);
             if (node->term.term != NULL) {
                 printAST(node->term.term, indentLevel + 1);
@@ -1601,40 +1447,40 @@ void printAST(ASTNode* node, int indentLevel) {
         case NODE_FACTOR:
             switch (node->factor.factorType) {
                 case FACTOR_CONSTANT:
-                    printf("Constant: %s\n", node->factor.constantValue);
+                    fprintf(stdout,"Constant: %s\n", node->factor.constantValue);
                     break;
 
                 case FACTOR_IDENTIFIER:
-                    printf("Identifier: %s\n", node->factor.identifierName);
+                    fprintf(stdout,"Identifier: %s\n", node->factor.identifierName);
                     break;
 
                 case FACTOR_FUNCTION_CALL:
-                    printf("Function Call:\n");
+                    fprintf(stdout,"Function Call:\n");
                     printIndent(indentLevel + 1);
-                    printf("Function Name: %s\n", node->factor.functionCall.function_name);
+                    fprintf(stdout,"Function Name: %s\n", node->factor.functionCall.function_name);
                     printIndent(indentLevel + 1);
-                    printf("Arguments:\n");
+                    fprintf(stdout,"Arguments:\n");
                     printAST(node->factor.functionCall.args, indentLevel + 2);
                     break;
 
                 case FACTOR_EXPRESSION:
-                    printf("Nested Expression:\n");
+                    fprintf(stdout,"Nested Expression:\n");
                     printAST(node->factor.expression, indentLevel + 1);
                     break;
 
                 default:
-                    printf("Unknown Factor Type\n");
+                    fprintf(stdout,"Unknown Factor Type\n");
                     break;
             }
             break;
 
         case NODE_FUNCTION_CALL:
-            printf("Function Call '%s' with arguments:\n", node->functionCall.identifierName);
+            fprintf(stdout,"Function Call '%s' with arguments:\n", node->functionCall.identifierName);
             printAST(node->functionCall.expressions, indentLevel + 1);
             break;
 
         default:
-            printf("Unknown Node Type\n");
+            fprintf(stdout,"Unknown Node Type\n");
             break;
     }
 
@@ -1644,10 +1490,10 @@ void printAST(ASTNode* node, int indentLevel) {
     }
 }
 void printSymbolList(Symbol** symbols, int symbolCount) {
-    printf("Symbol List:\n");
+    fprintf(stdout,"@ Symbol List:\n");
     for (int i = 0; i < symbolCount; i++) {
         if (symbols[i] != NULL) {
-            printf("Name: %s, Type: %s\n",
+            fprintf(stdout,"@ Name: %s, Type: %s\n",
                    symbols[i]->name,
                    symbols[i]->type == SYMBOL_VARIABLE ? "Variable" : "Function");
         }
@@ -1675,7 +1521,7 @@ int main(int argc, char *argv[]){
     fclose(file);
 
     for (int i = 0; ; i++) {
-        printf("@ Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
+        fprintf(stdout,"@ Token: %-20s Lexeme: %s (Line %d) (Position %d)\n",
             tokens[i].type == TOKEN_IDENTIFIER ? "IDENTIFIER" :
             tokens[i].type == TOKEN_REAL ? "REAL NUMBER" :
             tokens[i].type == TOKEN_FUNCTION ? "FUNCTION" :
