@@ -226,7 +226,7 @@ ASTNode* parseTerm(Token* tokenList, int* currentToken);
 ASTNode* parseFactor(Token* tokenList, int* currentToken);
 ASTNode* parseFunctionCall(Token* tokenList, int* currentToken);
 ASTNode* parseArgumentList(Token* tokenList, int* currentToken);
-char** parseParameterList(Token* tokenList, int* currentToken);
+char** parseParameterList(Token* tokenList, int* currentToken, int hasParentheses);
 
 
 // if a 'function' token is found `parseFunction` will take care of
@@ -259,12 +259,24 @@ ASTNode* parseFunction(Token* tokenList, int* currentToken) {
     addSymbol(tokenList[*currentToken].lexeme, SYMBOL_FUNCTION);
     (*currentToken)++;
 
-    // Parse parameters
-    functionNode->function.parameterIdentifiers = parseParameterList(tokenList, currentToken);
+    // Check for '('
+    int hasParentheses = 0;
+    if (tokenList[*currentToken].type == TOKEN_LPAREN) {
+        hasParentheses = 1;
+        (*currentToken)++; // Skip '('
+    }
 
-    // Add parameters to symbol table
-    for (int i = 0; functionNode->function.parameterIdentifiers[i] != NULL; i++) {
-        addSymbol(functionNode->function.parameterIdentifiers[i], SYMBOL_VARIABLE);
+    // Parse parameters
+    functionNode->function.parameterIdentifiers = parseParameterList(tokenList, currentToken, hasParentheses);
+
+    // If there was '(', expect ')'
+    if (hasParentheses == 1) {
+        if (tokenList[*currentToken].type != TOKEN_RPAREN) {
+            fprintf(stderr, "Expected ')' after function parameters\n");
+            syntaxErrorFlag = 1;
+            return NULL;
+        }
+        (*currentToken)++; // Skip ')'
     }
 
     // Parse function body (statements)
@@ -301,23 +313,48 @@ ASTNode* parseProgramItems(Token* tokenList, int* currentToken) {
 }
 
 // for function nodes, and functioncall nodes, this function parses the list of parameters provided
-char** parseParameterList(Token* tokenList, int* currentToken) {
+char** parseParameterList(Token* tokenList, int* currentToken, int hasParentheses) {
     char** parameters = malloc(MAX_IDENTIFIERS * sizeof(char*));
     int paramCount = 0;
 
+    // If no parentheses, and the next token is not an identifier, there are no parameters
+    if (hasParentheses == 0 && tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
+        parameters[paramCount] = NULL; // Null-terminate the list
+        return parameters;
+    }
+
     while (tokenList[*currentToken].type == TOKEN_IDENTIFIER) {
         parameters[paramCount++] = duplicateString(tokenList[*currentToken].lexeme);
+        addSymbol(tokenList[*currentToken].lexeme, SYMBOL_VARIABLE);
         (*currentToken)++;
-        
-        // Skip commas if present
-        if (tokenList[*currentToken].type == TOKEN_COMMA) {
-            (*currentToken)++; // Skip ','
+
+        // If parameters are within parentheses, check for comma
+        if (hasParentheses == 1) {
+            if (tokenList[*currentToken].type == TOKEN_COMMA) {
+                (*currentToken)++; // Skip ','
+            } else {
+                // No comma, break if next token is ')'
+                if (tokenList[*currentToken].type == TOKEN_RPAREN) {
+                    break;
+                } else {
+                    fprintf(stderr, "Expected ',' or ')' in parameter list\n");
+                    syntaxErrorFlag = 1;
+                    break;
+                }
+            }
+        } else {
+            // If no parentheses, stop parsing if next token is not an identifier
+            if (tokenList[*currentToken].type != TOKEN_IDENTIFIER) {
+                break;
+            }
         }
     }
 
     parameters[paramCount] = NULL; // Null-terminate the list
     return parameters;
 }
+
+
 // this node is secretly a linked list, since function bodies, and the top level program
 // can have multiple statements or functions. the linked list ensures that all statements are accounted for
 // TODO: consider tab indentations
@@ -963,7 +1000,6 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
     if (node == NULL || node->type != NODE_FACTOR) {
         return;
     }
-
     switch (node->factor.factorType) {
         case FACTOR_CONSTANT:
             fprintf(outputFile, "%f", atof(node->factor.constantValue)); // convert the char to a float, kinda not needed
@@ -991,12 +1027,13 @@ void generateFactor(ASTNode* node, FILE* outputFile) {
 
 // Generate code for a function call used within an expression
 void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
+    fprintf(stderr, "IDK WHY THIS ISNT WORKING HERE\n");
     if (factor == NULL) {
         return;
     }
 
     fprintf(outputFile, "%s(", factor->functionCall.identifierName);
-
+    fprintf(stderr, "%s(", factor->functionCall.identifierName);
     ASTNode* arg = factor->functionCall.expressions;
     while (arg != NULL) {
         generateExpression(arg, outputFile);
