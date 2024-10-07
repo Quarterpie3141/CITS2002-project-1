@@ -163,8 +163,6 @@ typedef struct ASTNode {
             struct ASTNode* expressions;
         } functionCall;
 
-
-
     };
 } ASTNode;
 
@@ -1066,7 +1064,7 @@ void generateFunctionCallInExpression(ASTNode* factor, FILE* outputFile) {
     }
     
     // adds arguments to the function call
-    fprintf(outputFile, "%s(", factor->factor.functionCall.function_name);
+    fprintf(outputFile, "%s(", factor->functionCall.expressions);
     ASTNode* arg = factor->factor.functionCall.args;
     while (arg != NULL) {
         generateExpression(arg, outputFile);
@@ -1610,5 +1608,3 @@ int main(int argc, char *argv[]){
     } 
     return EXIT_SUCCESS;
 }
-
-
